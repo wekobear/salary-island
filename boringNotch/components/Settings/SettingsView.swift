@@ -843,9 +843,9 @@ struct About: View {
             Form {
                 Section {
                     HStack {
-                        Text("Release name")
+                        Text("应用")
                         Spacer()
-                        Text(Defaults[.releaseName])
+                        Text("薪动日常")
                             .foregroundStyle(.secondary)
                     }
                     HStack {
@@ -872,7 +872,7 @@ struct About: View {
                 HStack(spacing: 30) {
                     Spacer(minLength: 0)
                     Button {
-                        if let url = URL(string: "https://github.com/TheBoredTeam/boring.notch") {
+                        if let url = URL(string: "https://github.com/wekobear/salary-island") {
                             NSWorkspace.shared.open(url)
                         }
                     } label: {
@@ -891,7 +891,7 @@ struct About: View {
             }
             VStack(spacing: 0) {
                 Divider()
-                Text("Made with 🫶🏻 by not so boring not.people")
+                Text("薪动日常 · 今天也没有白上班。")
                     .foregroundStyle(.secondary)
                     .padding(.top, 5)
                     .padding(.bottom, 7)
@@ -1380,7 +1380,7 @@ struct Appearance: View {
 
             Section {
                 Defaults.Toggle(key: .showMirror) {
-                    Text("Enable boring mirror")
+                    Text("启用镜子")
                 }
                     .disabled(!checkVideoInput())
                 Picker("Mirror shape", selection: $mirrorShape) {

@@ -37,7 +37,7 @@ struct DynamicNotchApp: App {
             }
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
             Button("展开薪动日常") { appDelegate.showSalaryIsland() }
-            Button("Boring Notch 原功能设置") { SettingsWindowController.shared.showWindow() }
+            Button("通用设置") { SettingsWindowController.shared.showWindow() }
             Divider()
             Button("重新启动薪动日常") {
                 ApplicationRelauncher.restart()
@@ -45,7 +45,7 @@ struct DynamicNotchApp: App {
             Button("退出薪动日常", role: .destructive) {
                 NSApplication.shared.terminate(self)
             }
-            .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
+            .keyboardShortcut(KeyEquivalent("q"), modifiers: .command)
         }
     }
 }

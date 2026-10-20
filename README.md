@@ -4,7 +4,7 @@
 
 一款陪你上班的 macOS 灵动岛小工具。把月薪换算成每秒、每分钟、每小时的收入，看着时间变成奶茶、好饭和一件喜欢的衣服。
 
-[下载 v0.1.1 体验版](https://github.com/wekobear/salary-island/releases/tag/v0.1.1) · [使用与构建说明](README-SalaryIsland.md)
+[下载 v0.1.2 体验版](https://github.com/wekobear/salary-island/releases/tag/v0.1.2) · [使用与构建说明](README-SalaryIsland.md)
 
 ## 瞄一眼，今天也没有白上班
 
@@ -22,9 +22,10 @@
 
 ## 开始使用
 
-1. 在 [Releases](https://github.com/wekobear/salary-island/releases/tag/v0.1.1) 下载 macOS 体验包，解压后打开「薪动日常.app」。
+1. 在 [Releases](https://github.com/wekobear/salary-island/releases/tag/v0.1.2) 下载 macOS 体验包，解压后打开「薪动日常.app」。
 2. 点击「播放奶茶演示」先看效果，或填写月薪与作息，预览后保存。
 3. 把鼠标移到屏幕顶部灵动岛，查看倒计时、今日收入和下一份小快乐。
+4. 点击顶部齿轮打开设置，左下角可「退出薪动日常」；关闭设置窗口只会收起设置。
 
 当前体验包适用于 **Apple Silicon、macOS 14+**，已在 macOS 26 内置刘海屏验证；尚未做 Developer ID 公证。升级沿用原配置，无需重新填写月薪。
 
@@ -32,10 +33,10 @@
 
 ## 版本与开发
 
-v0.1.1 更新了主界面布局、开关 Toast、目标进度和设置底栏，修复排班生效、时区记录及保存失败反馈等问题。62 项核心检查与 22 项 Store 检查通过。
+v0.1.2 统一应用品牌与项目入口，在设置页左下角新增「退出薪动日常」，支持 ⌘Q。保留此前的主界面、目标进度及计薪修复。62 项核心检查与 22 项 Store 检查通过。
 
-[更新说明](docs/RELEASE-v0.1.1.md) · [测试与已知限制](docs/TEST-SECURITY-v0.1.md) · [产品文档](docs/PRD-v0.3.md)
+[更新说明](docs/RELEASE-v0.1.2.md) · [测试与已知限制](docs/TEST-SECURITY-v0.1.md) · [产品文档](docs/PRD-v0.3.md)
 
-## 致谢与许可证
+## 许可证
 
-本项目基于 [Boring Notch](https://github.com/TheBoredTeam/boring.notch) 开发，遵循 [GPL-3.0](LICENSE)，保留原作者版权与声明。[上游原始说明](docs/UPSTREAM-README.md) 单独留存；本仓库的介绍、截图与体验包对应「薪动日常」。
+[GPL-3.0](LICENSE) · [开源许可与声明](THIRD-PARTY-NOTICES.md)

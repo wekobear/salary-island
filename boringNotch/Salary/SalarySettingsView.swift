@@ -82,7 +82,7 @@ struct SalarySettingsView: View {
         .alert("清除薪酬数据？", isPresented: $confirmClear) {
             Button("取消", role: .cancel) {}
             Button("清除", role: .destructive) { perform { try store.clearSalaryData(); load(); message = "薪酬数据已清除。" } }
-        } message: { Text("删除本应用的工资配置、日记录、成就与文案历史。Boring Notch 的原模块数据不受影响。") }
+        } message: { Text("删除本应用的工资配置、日记录、成就与文案历史。音乐与文件架数据不受影响。") }
     }
 
     private var sidebar: some View {
@@ -109,7 +109,14 @@ struct SalarySettingsView: View {
                 }.buttonStyle(.bordered).tint(SalaryPalette.mint)
                 Text("演示使用虚构工资，\n不会写入你的成就。") .font(.system(size: 10)).foregroundStyle(.white.opacity(0.4)).lineSpacing(3)
             }.padding(12).background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
-            Button("Boring Notch 原功能设置") { SettingsWindowController.shared.showWindow() }.buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(.white.opacity(0.4)).padding(.top, 10)
+            Button("通用设置") { SettingsWindowController.shared.showWindow() }.buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(.white.opacity(0.4)).padding(.top, 10)
+            Button { NSApplication.shared.terminate(nil) } label: {
+                Label("退出薪动日常", systemImage: "power")
+                    .font(.system(size: 12)).padding(.vertical, 6)
+            }
+            .buttonStyle(.plain).foregroundStyle(.white.opacity(0.7))
+            .keyboardShortcut("q", modifiers: .command)
+            .help("退出应用，停止显示灵动岛；薪酬配置保留。")
         }.padding(20).frame(width: 208).frame(maxHeight: .infinity).background(Color.black.opacity(0.55))
     }
 
@@ -270,8 +277,9 @@ struct SalarySettingsView: View {
                         try store.savePreferences(value); message = "偏好已保存。用你喜欢的方式上班。"
                     }
                 }.buttonStyle(SalaryPrimaryButtonStyle())
+                Link("开源许可与声明", destination: URL(string: "https://github.com/wekobear/salary-island/blob/feature/salary-island-v1/THIRD-PARTY-NOTICES.md")!)
                 Button("清除薪酬数据…", role: .destructive) { confirmClear = true }
-                Text("薪酬数据保存在这台 Mac，不需要账号。基于 Boring Notch 改造，保留 GPL-3.0 许可证。") .font(.caption).foregroundStyle(.secondary)
+                Text("薪酬数据保存在这台 Mac，不需要账号。") .font(.caption).foregroundStyle(.secondary)
             }
         }
     }
