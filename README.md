@@ -1,3 +1,17 @@
+# 薪动岛 · Salary Island
+
+基于 Boring Notch 改造的 macOS 薪酬灵动岛：下班倒计时、今日估算收入、每秒/分钟/小时工资，以及“奶茶到手了”的快乐里程碑。
+
+**当前版本：v0.1.0 本地体验版。** Apple Silicon，macOS 14+；已在 macOS 26 的内置刘海屏运行验证。51项计算与提示调度检查通过；多显示器、长期能耗等仍待验证。此项目不是上游官方发行版。
+
+- [下载体验版](https://github.com/wekobear/salary-island/releases/tag/v0.1.0)
+- [使用与构建说明](README-SalaryIsland.md)
+- [产品文档](docs/PRD-v0.3.md) · [测试与安全检查](docs/TEST-SECURITY-v0.1.md)
+
+金额为按作息折算的估算值，不连接银行。首次可点击“播放奶茶演示”；薪酬数据保存在本机。保留 Boring Notch 作者声明与 [GPL-3.0](LICENSE)。以下为上游项目说明。
+
+---
+
 <h1 align="center">
   <br>
   <a href="http://theboring.name"><img src="https://framerusercontent.com/images/RFK4vs0kn8pRMuOO58JeyoemXA.png?scale-down-to=256" alt="Boring Notch" width="150"></a>
