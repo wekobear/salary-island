@@ -21,8 +21,9 @@ struct WelcomeView: View {
                     .offset(y: -5)
                     .background(SparkleView().opacity(0.6))
                 VStack(spacing: 8) {
-                    Image(systemName: "cup.and.saucer.fill")
-                        .font(.system(size: 72)).foregroundStyle(SalaryPalette.mint)
+                    Image("SalaryLogo")
+                        .resizable().scaledToFit()
+                        .accessibilityHidden(true)
                         .frame(width: 100, height: 100)
                         .padding(.bottom, 8)
                     Text("薪动日常")

@@ -843,6 +843,8 @@ struct About: View {
             Form {
                 Section {
                     HStack {
+                        Image("SalaryLogo").resizable().scaledToFit()
+                            .frame(width: 32, height: 32).accessibilityHidden(true)
                         Text("应用")
                         Spacer()
                         Text("薪动日常")

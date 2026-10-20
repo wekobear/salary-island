@@ -123,10 +123,8 @@ struct SalaryDashboardView: View {
 
     private var welcome: some View {
         HStack(spacing: 22) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 20).fill(SalaryPalette.mint.opacity(0.13)).frame(width: 88, height: 100)
-                Image(systemName: "cup.and.saucer.fill").font(.system(size: 36)).foregroundStyle(SalaryPalette.mint)
-            }
+            Image("SalaryLogo").resizable().scaledToFit()
+                .frame(width: 100, height: 100).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 10) {
                 Text("每一秒，都有一点甜。").font(.system(size: 22, weight: .semibold))
                 Text("等下班的时候，看时间变成奶茶、好饭，\n和一件喜欢的衣服。")

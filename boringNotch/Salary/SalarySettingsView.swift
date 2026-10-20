@@ -87,7 +87,7 @@ struct SalarySettingsView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Image(systemName: "cup.and.saucer.fill").font(.system(size: 31)).foregroundStyle(SalaryPalette.mint).padding(.top, 30)
+            Image("SalaryLogo").resizable().scaledToFit().frame(width: 56, height: 56).accessibilityHidden(true).padding(.top, 20)
             Text("薪动日常").font(.system(size: 27, weight: .semibold, design: .rounded))
             Text("今天也没有白上班。") .font(.system(size: 11)).foregroundStyle(.white.opacity(0.5)).padding(.bottom, 28)
             ForEach(0..<3) { index in
