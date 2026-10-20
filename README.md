@@ -6,7 +6,7 @@
 
 一款陪你上班的 macOS 灵动岛小工具。把月薪换算成每秒、每分钟、每小时的收入，看着时间变成奶茶、好饭和一件喜欢的衣服。
 
-[下载 v0.1.3 体验版](https://github.com/wekobear/salary-island/releases/tag/v0.1.3) · [使用与构建说明](README-SalaryIsland.md)
+[下载 v0.1.3 体验版](https://github.com/wekobear/salary-island/releases/tag/v0.1.3) · [安装图解](docs/INSTALL.md) · [使用与构建说明](README-SalaryIsland.md)
 
 ## 21 秒，看时间变成生活的一点甜
 
@@ -37,6 +37,29 @@
 2. 点击「播放奶茶演示」先看效果，或填写月薪与作息，预览后保存。
 3. 把鼠标移到屏幕顶部灵动岛，查看倒计时、今日收入和下一份小快乐。
 4. 点击顶部齿轮打开设置，左下角可「退出薪动日常」；关闭设置窗口只会收起设置。
+
+### 首次打开遇到弹窗？按这 3 步操作
+
+从本仓库下载并确认来源可靠后：点击「完成」→ 打开「系统设置 → 隐私与安全性」→ 在「安全性」区域点击「仍要打开」→ 在确认弹窗中再次点击「仍要打开」。
+
+[查看完整安装图解](docs/INSTALL.md)
+
+<details>
+<summary>展开查看 3 张操作截图</summary>
+
+**第 1 步：首次弹窗点击「完成」。**
+
+<img src="docs/images/install-01-warning.png" width="360" alt="首次打开提示，点击完成">
+
+**第 2 步：系统设置 → 隐私与安全性 → 仍要打开。**
+
+<img src="docs/images/install-02-privacy-security.png" width="800" alt="隐私与安全性页面，在已阻止薪动日常的提示右侧点击仍要打开">
+
+**第 3 步：在确认弹窗中再次点击「仍要打开」，按系统提示完成身份验证。**
+
+<img src="docs/images/install-03-open-anyway.png" width="360" alt="确认弹窗中再次点击仍要打开">
+
+</details>
 
 当前体验包适用于 **Apple Silicon、macOS 14+**，已在 macOS 26 内置刘海屏验证。升级沿用原配置，无需重新填写月薪。
 
