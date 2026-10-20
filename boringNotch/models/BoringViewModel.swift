@@ -190,11 +190,11 @@ class BoringViewModel: NSObject, ObservableObject {
     }
 
     func open() {
-        self.notchSize = openNotchSize
+        self.notchSize = coordinator.currentView == .salary ? salaryOpenSize : openNotchSize
         self.notchState = .open
         
         // Force music information update when notch is opened
-        MusicManager.shared.forceUpdate()
+        if coordinator.currentView == .home { MusicManager.shared.forceUpdate() }
     }
 
     func close() {
@@ -214,7 +214,7 @@ class BoringViewModel: NSObject, ObservableObject {
     if !ShelfStateViewModel.shared.isEmpty && Defaults[.openShelfByDefault] {
             coordinator.currentView = .shelf
         } else if !coordinator.openLastTabByDefault {
-            coordinator.currentView = .home
+            coordinator.currentView = .salary
         }
     }
 

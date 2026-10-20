@@ -22,26 +22,27 @@ struct DynamicNotchApp: App {
 
     init() {
         updaterController = SPUStandardUpdaterController(
-            startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+            startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
 
         // Initialize the settings window controller with the updater controller
         SettingsWindowController.shared.setUpdaterController(updaterController)
     }
 
     var body: some Scene {
-        MenuBarExtra("boring.notch", systemImage: "sparkle", isInserted: $showMenuBarIcon) {
-            Button("Settings") {
+        MenuBarExtra("薪动岛", systemImage: "yensign.circle", isInserted: $showMenuBarIcon) {
+            Button("薪酬与快乐设置") {
                 DispatchQueue.main.async {
-                    SettingsWindowController.shared.showWindow()
+                    SalarySettingsWindow.shared.show()
                 }
             }
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
-            CheckForUpdatesView(updater: updaterController.updater)
+            Button("展开薪动岛") { appDelegate.showSalaryIsland() }
+            Button("Boring Notch 原功能设置") { SettingsWindowController.shared.showWindow() }
             Divider()
-            Button("Restart Boring Notch") {
+            Button("重新启动薪动岛") {
                 ApplicationRelauncher.restart()
             }
-            Button("Quit", role: .destructive) {
+            Button("退出薪动岛", role: .destructive) {
                 NSApplication.shared.terminate(self)
             }
             .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
@@ -280,6 +281,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        coordinator.firstLaunch = false
+        coordinator.helloAnimationRunning = false
+        coordinator.showWhatsNew = false
+        _ = SalaryStore.shared
+        SalaryStore.shared.requestOpenIsland = { [weak self] in self?.showSalaryIsland() }
 
         NotificationCenter.default.addObserver(
             self,
@@ -422,20 +428,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         setupDragDetectors()
 
-        if coordinator.firstLaunch {
-            DispatchQueue.main.async {
-                self.showOnboardingWindow()
-            }
-            playWelcomeSound()
-        } else if MusicManager.shared.isNowPlayingDeprecated
-            && Defaults[.mediaController] == .nowPlaying
-        {
-            DispatchQueue.main.async {
-                self.showOnboardingWindow(step: .musicPermission)
-            }
+        if !SalaryStore.shared.configured {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { SalarySettingsWindow.shared.show() }
         }
 
         previousScreens = NSScreen.screens
+    }
+
+    @MainActor
+    func showSalaryIsland() {
+        coordinator.currentView = .salary
+        let model = viewModels[coordinator.selectedScreenUUID] ?? vm
+        model.open()
     }
 
     func playWelcomeSound() {
@@ -581,7 +585,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     },
                     onOpenSettings: {
                         window.close()
-                        SettingsWindowController.shared.showWindow()
+                        SalarySettingsWindow.shared.show()
                     }
                 ))
             window.isRestorable = false

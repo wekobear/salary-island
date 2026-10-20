@@ -69,6 +69,17 @@ class MusicManager: ObservableObject {
     private var transitionWorkItem: DispatchWorkItem?
 
     // MARK: - Initialization
+    private var salaryMusicStarted = false
+
+    func enableOriginalMusic() {
+        guard !salaryMusicStarted else { return }
+        salaryMusicStarted = true
+        Task { @MainActor in
+            self.isNowPlayingDeprecated = (try? await self.mediaChecker.checkDeprecationStatus()) ?? false
+            self.setActiveControllerBasedOnPreference()
+        }
+    }
+
     init() {
         // Listen for changes to the default controller preference
         NotificationCenter.default.publisher(for: Notification.Name.mediaControllerChanged)
@@ -77,19 +88,6 @@ class MusicManager: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Initialize deprecation check asynchronously
-        Task { @MainActor in
-            do {
-                self.isNowPlayingDeprecated = try await self.mediaChecker.checkDeprecationStatus()
-                print("Deprecation check completed: \(self.isNowPlayingDeprecated)")
-            } catch {
-                print("Failed to check deprecation status: \(error). Defaulting to false.")
-                self.isNowPlayingDeprecated = false
-            }
-            
-            // Initialize the active controller after deprecation check
-            self.setActiveControllerBasedOnPreference()
-        }
     }
 
     deinit {

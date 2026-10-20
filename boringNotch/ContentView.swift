@@ -18,6 +18,10 @@ struct ContentView: View {
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject var webcamManager = WebcamManager.shared
 
+    @ObservedObject var salary = SalaryStore.shared
+    @State private var salaryCloseTask: Task<Void, Never>?
+    @State private var salaryAutoOpened = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
@@ -38,7 +42,7 @@ struct ContentView: View {
     @Default(.showNotHumanFace) var showNotHumanFace
 
     // Shared interactive spring for movement/resizing to avoid conflicting animations
-    private let animationSpring = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
+    private var animationSpring: Animation { reduceMotion ? .linear(duration: 0.01) : .easeOut(duration: 0.22) }
 
     private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
@@ -120,8 +124,8 @@ struct ContentView: View {
                 mainLayout
                     .frame(height: vm.notchState == .open ? vm.notchSize.height : nil)
                     .conditionalModifier(true) { view in
-                        let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
-                        let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
+                        let openAnimation = animationSpring
+                        let closeAnimation = animationSpring
                         
                         return view
                             .animation(vm.notchState == .open ? openAnimation : closeAnimation, value: vm.notchState)
@@ -185,7 +189,7 @@ struct ContentView: View {
                     .contextMenu {
                         Button("Settings") {
                             DispatchQueue.main.async {
-                                SettingsWindowController.shared.showWindow()
+                                SalarySettingsWindow.shared.show()
                             }
                         }
                         .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
@@ -214,7 +218,29 @@ struct ContentView: View {
         .background(dragDetector)
         .preferredColorScheme(.dark)
         .environmentObject(vm)
+        .onAppear { salary.visibleSources.insert(vm.screenUUID ?? "primary") }
+        .onDisappear { salary.visibleSources.remove(vm.screenUUID ?? "primary"); salary.interactionSources.remove(vm.screenUUID ?? "primary") }
+        .onChange(of: coordinator.currentView) { _, _ in
+            if vm.notchState == .open { vm.open() }
+        }
+        .onChange(of: salary.toast) { _, toast in
+            guard vm.screenUUID == coordinator.selectedScreenUUID || vm.screenUUID == nil else { return }
+            if toast != nil && !isHovering && !vm.hideOnClosed && !salary.privacy {
+                salaryAutoOpened = vm.notchState == .closed
+                coordinator.currentView = .salary
+                withAnimation(animationSpring) { vm.open() }
+                salaryCloseTask?.cancel()
+                salaryCloseTask = Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(4))
+                    guard !Task.isCancelled else { return }
+                    if !isHovering && salaryAutoOpened { withAnimation(animationSpring) { vm.close() }; salaryAutoOpened = false }
+                }
+            } else if toast == nil && salaryAutoOpened && !isHovering {
+                salaryCloseTask?.cancel(); withAnimation(animationSpring) { vm.close() }; salaryAutoOpened = false
+            }
+        }
         .onChange(of: vm.anyDropZoneTargeting) { _, isTargeted in
+            if isTargeted { salary.interactionSources.insert("drop") } else { salary.interactionSources.remove("drop") }
             anyDropDebounceTask?.cancel()
 
             if isTargeted {
@@ -287,6 +313,8 @@ struct ContentView: View {
                       } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && vm.notchState == .closed {
                           InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(.opacity)
+                      } else if vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show && !coordinator.sneakPeek.show {
+                          SalaryCompactView(centerWidth: vm.closedNotchSize.width, height: vm.effectiveClosedNotchHeight)
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                           MusicLiveActivity()
                               .frame(alignment: .center)
@@ -345,6 +373,8 @@ struct ContentView: View {
             if vm.notchState == .open {
                 VStack {
                     switch coordinator.currentView {
+                    case .salary:
+                        SalaryDashboardView()
                     case .home:
                         NotchHomeView(albumArtNamespace: albumArtNamespace)
                     case .shelf:
@@ -511,6 +541,8 @@ struct ContentView: View {
     // MARK: - Hover Management
 
     private func handleHover(_ hovering: Bool) {
+        let key = vm.screenUUID ?? "primary"
+        if hovering { salary.interactionSources.insert(key) } else { salary.interactionSources.remove(key) }
         if coordinator.firstLaunch { return }
         hoverTask?.cancel()
         

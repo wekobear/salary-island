@@ -16,7 +16,7 @@ struct BoringHeader: View {
     var body: some View {
         HStack(spacing: 0) {
             HStack {
-                if (!tvm.isEmpty || coordinator.alwaysShowTabs) && Defaults[.boringShelf] {
+                if true {
                     TabSelectionView()
                 } else if vm.notchState == .open {
                     EmptyView()
@@ -61,7 +61,7 @@ struct BoringHeader: View {
                         if Defaults[.settingsIconInNotch] {
                             Button(action: {
                                 DispatchQueue.main.async {
-                                    SettingsWindowController.shared.showWindow()
+                                    SalarySettingsWindow.shared.show()
                                 }
                                 
                             }) {

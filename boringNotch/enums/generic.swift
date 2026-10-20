@@ -25,6 +25,7 @@ public enum NotchState {
 }
 
 public enum NotchViews {
+    case salary
     case home
     case shelf
 }

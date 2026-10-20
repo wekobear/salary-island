@@ -1,0 +1,213 @@
+import Foundation
+
+enum SalaryTax: String, Codable, CaseIterable {
+    case beforeTax, afterTax
+    var label: String { self == .beforeTax ? "税前" : "税后" }
+}
+
+struct SalaryCalculationError: LocalizedError {
+    var message: String
+    init(_ message: String) { self.message = message }
+    var errorDescription: String? { message }
+}
+
+struct SalarySchedule: Codable, Equatable {
+    var weekdays: Set<Int> = [2,3,4,5,6]
+    var startMinute = 540
+    var endMinute = 1080
+    var breakStartMinute = 720
+    var breakEndMinute = 780
+    var hasBreak = true
+    var paidBreak = false
+    var timeZoneID = TimeZone.current.identifier
+    var exceptions: [String: Bool] = [:]
+    var paidSeconds: Int64 {
+        Int64(max(0, endMinute - startMinute - (hasBreak && !paidBreak ? breakEndMinute - breakStartMinute : 0))) * 60
+    }
+    func validate() throws {
+        guard !weekdays.isEmpty, weekdays.allSatisfy({ (1...7).contains($0) }) else { throw SalaryCalculationError("请至少选择一个有效工作日。") }
+        guard (0...1439).contains(startMinute), (0...1439).contains(endMinute), startMinute < endMinute else { throw SalaryCalculationError("下班须晚于上班；首版不支持跨午夜班次。") }
+        if hasBreak {
+            guard breakStartMinute >= startMinute, breakEndMinute <= endMinute, breakStartMinute < breakEndMinute,
+                  breakEndMinute - breakStartMinute < endMinute - startMinute else { throw SalaryCalculationError("午休须在班次内，且短于整个班次。") }
+        }
+        guard TimeZone(identifier: timeZoneID) != nil else { throw SalaryCalculationError("请输入有效时区，例如 Asia/Shanghai。") }
+        guard paidSeconds > 0 else { throw SalaryCalculationError("每日计薪时间必须大于0。") }
+        for key in exceptions.keys {
+            guard SalaryEngine.validDayKey(key, timeZoneID: timeZoneID) else { throw SalaryCalculationError("排班日期格式无效。") }
+        }
+    }
+}
+
+struct SalaryProfile: Codable, Equatable {
+    var monthlyCents: Int64 = 0
+    var tax: SalaryTax = .afterTax
+    var schedule = SalarySchedule()
+    func validate() throws {
+        guard (1...100_000_000_000).contains(monthlyCents) else { throw SalaryCalculationError("月薪须大于0，且不超过10亿元。") }
+        try schedule.validate()
+    }
+}
+
+struct SalaryVersion: Codable, Equatable, Identifiable {
+    var id = UUID().uuidString
+    var effectiveDay: String
+    var profile: SalaryProfile
+}
+
+struct SalaryInterval: Codable, Equatable { var start: Date; var end: Date }
+
+struct SalarySnapshot: Codable, Equatable, Identifiable {
+    var id: String
+    var dayKey: String
+    var versionID: String
+    var monthlyCents: Int64
+    var denominatorSeconds: Int64
+    var intervals: [SalaryInterval]
+    var shiftStart: Date?
+    var shiftEnd: Date?
+    var tax: SalaryTax
+    var timeZoneID: String
+    var plannedSeconds: Int64 { intervals.reduce(0) { $0 + Int64($1.end.timeIntervalSince($1.start)) } }
+    var isWorkday: Bool { plannedSeconds > 0 }
+    func elapsedSeconds(at date: Date) -> Int64 {
+        intervals.reduce(0) { sum, interval in sum + Int64(max(0, floor(min(date, interval.end).timeIntervalSince(interval.start)))) }
+    }
+    func earnedCents(at date: Date) -> Double {
+        guard denominatorSeconds > 0 else { return 0 }
+        return Double(monthlyCents) * Double(elapsedSeconds(at: date)) / Double(denominatorSeconds)
+    }
+    var dayCents: Double { denominatorSeconds > 0 ? Double(monthlyCents) * Double(plannedSeconds) / Double(denominatorSeconds) : 0 }
+    var hourlyYuan: Double { denominatorSeconds > 0 ? Double(monthlyCents) * 36 / Double(denominatorSeconds) : 0 }
+    func reached(cents: Int64, at date: Date) -> Bool {
+        guard cents > 0, cents <= 100_000_000_000, monthlyCents > 0, denominatorSeconds > 0 else { return false }
+        let left = monthlyCents.multipliedReportingOverflow(by: elapsedSeconds(at: date))
+        let right = cents.multipliedReportingOverflow(by: denominatorSeconds)
+        return !left.overflow && !right.overflow && left.partialValue >= right.partialValue
+    }
+    func crossingDate(cents: Int64) -> Date? {
+        guard cents > 0, cents <= 100_000_000_000, monthlyCents > 0, denominatorSeconds > 0 else { return nil }
+        let product = cents.multipliedReportingOverflow(by: denominatorSeconds)
+        guard !product.overflow else { return nil }
+        var seconds = product.partialValue / monthlyCents + (product.partialValue % monthlyCents == 0 ? 0 : 1)
+        guard seconds <= plannedSeconds else { return nil }
+        for interval in intervals {
+            let count = Int64(interval.end.timeIntervalSince(interval.start))
+            if seconds <= count { return interval.start.addingTimeInterval(Double(seconds)) }
+            seconds -= count
+        }
+        return nil
+    }
+    func progress(at date: Date) -> Double { plannedSeconds > 0 ? Double(elapsedSeconds(at: date)) / Double(plannedSeconds) : 0 }
+}
+
+enum SalaryEngine {
+    static func calendar(_ zone: String) -> Calendar {
+        var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: zone) ?? .current; c.locale = Locale(identifier: "en_US_POSIX"); return c
+    }
+    static func dayKey(_ date: Date, timeZoneID: String) -> String {
+        let c = calendar(timeZoneID).dateComponents([.year,.month,.day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+    }
+    static func date(for dayKey: String, timeZoneID: String) -> Date {
+        let values = dayKey.split(separator: "-").compactMap { Int($0) }
+        guard values.count == 3 else { return .distantPast }
+        return calendar(timeZoneID).date(from: DateComponents(year: values[0], month: values[1], day: values[2])) ?? .distantPast
+    }
+    static func validDayKey(_ key: String, timeZoneID: String) -> Bool {
+        guard key.count == 10 else { return false }
+        return dayKey(date(for: key, timeZoneID: timeZoneID), timeZoneID: timeZoneID) == key
+    }
+    static func selected(_ key: String, versions: [SalaryVersion]) -> SalaryVersion? {
+        let ordered = versions.sorted { $0.effectiveDay < $1.effectiveDay }
+        return ordered.last(where: { $0.effectiveDay <= key }) ?? ordered.first
+    }
+    static func profile(for dayKey: String, versions: [SalaryVersion]) -> SalaryProfile {
+        selected(dayKey, versions: versions)?.profile ?? SalaryProfile()
+    }
+    static func works(_ key: String, schedule: SalarySchedule) -> Bool {
+        if let value = schedule.exceptions[key] { return value }
+        return schedule.weekdays.contains(calendar(schedule.timeZoneID).component(.weekday, from: date(for: key, timeZoneID: schedule.timeZoneID)))
+    }
+    static func moment(_ key: String, minute: Int, schedule: SalarySchedule) -> Date {
+        let c = calendar(schedule.timeZoneID)
+        return c.date(bySettingHour: minute / 60, minute: minute % 60, second: 0, of: date(for: key, timeZoneID: schedule.timeZoneID))!
+    }
+    static func intervals(_ key: String, schedule: SalarySchedule) -> [SalaryInterval] {
+        guard works(key, schedule: schedule) else { return [] }
+        let start = moment(key, minute: schedule.startMinute, schedule: schedule)
+        let end = moment(key, minute: schedule.endMinute, schedule: schedule)
+        if !schedule.hasBreak || schedule.paidBreak { return [.init(start: start, end: end)] }
+        let breakStart = moment(key, minute: schedule.breakStartMinute, schedule: schedule)
+        let breakEnd = moment(key, minute: schedule.breakEndMinute, schedule: schedule)
+        return [SalaryInterval(start: start, end: breakStart), SalaryInterval(start: breakEnd, end: end)].filter { $0.end > $0.start }
+    }
+    static func snapshot(at now: Date, versions: [SalaryVersion]) throws -> SalarySnapshot {
+        guard let first = versions.sorted(by: { $0.effectiveDay < $1.effectiveDay }).first else { throw SalaryCalculationError("请先填写月薪与作息。") }
+        // Effective dates are civil work dates. Resolve using the current effective profile's zone.
+        var key = dayKey(now, timeZoneID: first.profile.schedule.timeZoneID)
+        var version = selected(key, versions: versions)!
+        key = dayKey(now, timeZoneID: version.profile.schedule.timeZoneID)
+        version = selected(key, versions: versions)!
+        try version.profile.validate()
+        let schedule = version.profile.schedule
+        let c = calendar(schedule.timeZoneID)
+        let day = date(for: key, timeZoneID: schedule.timeZoneID)
+        guard let month = c.dateInterval(of: .month, for: day) else { throw SalaryCalculationError("无法生成月度计划。") }
+        var current = month.start
+        var denominator: Int64 = 0
+        while current < month.end {
+            let dateKey = dayKey(current, timeZoneID: schedule.timeZoneID)
+            let p = profile(for: dateKey, versions: versions)
+            try p.validate()
+            for interval in intervals(dateKey, schedule: p.schedule) { denominator += Int64(interval.end.timeIntervalSince(interval.start)) }
+            current = c.date(byAdding: .day, value: 1, to: current)!
+        }
+        guard denominator > 0, denominator <= 32 * 86400 else { throw SalaryCalculationError("当月没有有效计薪时间，请检查工作日与休息日期。") }
+        let paid = intervals(key, schedule: schedule)
+        let work = works(key, schedule: schedule)
+        return SalarySnapshot(id: key, dayKey: key, versionID: version.id, monthlyCents: version.profile.monthlyCents, denominatorSeconds: denominator, intervals: paid,
+            shiftStart: work ? moment(key, minute: schedule.startMinute, schedule: schedule) : nil,
+            shiftEnd: work ? moment(key, minute: schedule.endMinute, schedule: schedule) : nil,
+            tax: version.profile.tax, timeZoneID: schedule.timeZoneID)
+    }
+    static func effectiveDay(for newProfile: SalaryProfile, versions: [SalaryVersion], now: Date) throws -> String {
+        try newProfile.validate()
+        let oldZone = versions.first?.profile.schedule.timeZoneID ?? newProfile.schedule.timeZoneID
+        let oldKey = dayKey(now, timeZoneID: oldZone)
+        let old = profile(for: oldKey, versions: versions)
+        let zoneChanged = old.schedule.timeZoneID != newProfile.schedule.timeZoneID && !versions.isEmpty
+        let key = dayKey(now, timeZoneID: old.schedule.timeZoneID)
+        if !zoneChanged {
+            let starts = [old.schedule, newProfile.schedule].compactMap { s -> Date? in
+                works(key, schedule: s) ? moment(key, minute: s.startMinute, schedule: s) : nil
+            }
+            if starts.min().map({ now < $0 }) ?? true { return key }
+        }
+        let schedule = zoneChanged ? old.schedule : newProfile.schedule
+        let c = calendar(schedule.timeZoneID)
+        var day = date(for: key, timeZoneID: schedule.timeZoneID)
+        for _ in 0..<370 {
+            day = c.date(byAdding: .day, value: 1, to: day)!
+            let next = dayKey(day, timeZoneID: schedule.timeZoneID)
+            if works(next, schedule: schedule) { return next }
+        }
+        throw SalaryCalculationError("未来一年没有有效工作日，请检查排班例外。")
+    }
+    static func moneyCents(_ text: String) throws -> Int64 {
+        let raw = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = raw.split(separator: ".", omittingEmptySubsequences: false)
+        guard (1...2).contains(parts.count), !parts[0].isEmpty,
+              parts.allSatisfy({ !$0.isEmpty && $0.utf8.allSatisfy { (48...57).contains($0) } }),
+              parts.count == 1 || parts[1].count <= 2,
+              let whole = Int64(parts[0]), whole <= 1_000_000_000 else { throw SalaryCalculationError("金额请填写正数，最多两位小数，上限10亿元。") }
+        let fractional = parts.count == 2 ? Int64(parts[1].padding(toLength: 2, withPad: "0", startingAt: 0))! : 0
+        let result = whole * 100 + fractional
+        guard (1...100_000_000_000).contains(result) else { throw SalaryCalculationError("金额须大于0，且不超过10亿元。") }
+        return result
+    }
+    static func formatYuan(cents: Double) -> String {
+        let f = NumberFormatter(); f.locale = Locale(identifier: "zh_CN"); f.numberStyle = .currency; f.currencySymbol = "¥"; f.minimumFractionDigits = 2; f.maximumFractionDigits = 2; f.roundingMode = .halfUp
+        return f.string(from: NSNumber(value: cents / 100)) ?? "¥0.00"
+    }
+}

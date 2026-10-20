@@ -53,3 +53,8 @@ build/
 *.xcarchive
 *.dSYM
 
+
+# Local build evidence and machine-specific package mirrors
+/work/
+/.swiftpm/
+boringNotch.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/configuration/

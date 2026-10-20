@@ -29,8 +29,8 @@ struct CheckForUpdatesView: View {
     }
     
     var body: some View {
-        Button("Check for Updates…", action: updater.checkForUpdates)
-            .disabled(!checkForUpdatesViewModel.canCheckForUpdates)
+        Button("本地体验版 · 自动更新未启用") {}
+            .disabled(true)
     }
 }
 
@@ -47,21 +47,9 @@ struct UpdaterSettingsView: View {
     }
     
     var body: some View {
-        Section {
-            Toggle("Automatically check for updates", isOn: $automaticallyChecksForUpdates)
-                .onChange(of: automaticallyChecksForUpdates) { _, newValue in
-                    updater.automaticallyChecksForUpdates = newValue
-                }
-            
-            Toggle("Automatically download updates", isOn: $automaticallyDownloadsUpdates)
-                .disabled(!automaticallyChecksForUpdates)
-                .onChange(of: automaticallyDownloadsUpdates) { _, newValue in
-                    updater.automaticallyDownloadsUpdates = newValue
-                }
-        } header: {
-            HStack {
-                Text("Software updates")
-            }
+        Section("软件更新") {
+            Text("薪动岛本地体验版未启用自动更新，不会被上游版本覆盖。")
+                .foregroundStyle(.secondary)
         }
     }
 }
