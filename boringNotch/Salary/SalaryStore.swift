@@ -50,23 +50,28 @@ final class SalaryStore: ObservableObject {
     private var locked = false
     private var sleeping = false
     private var previousTick: Date?
+    private var previousRealTick: Date?
     private var toastAt: Date?
     private var demoStarted: Date?
     private var demoBase: Date?
     private var demoLedger: SalaryDayLedger?
     private var loadFailed = false
+    private let clock: () -> Date
     let storageURL: URL
 
     var configured: Bool { !data.versions.isEmpty }
     var privacy: Bool { data.preferences.privacy }
     var milestones: [SalaryMilestone] { isDemo ? SalaryMilestone.defaults : data.milestones }
-    var quiet: Bool { data.preferences.quietUntil.map { $0 > Date() } ?? false }
+    var quiet: Bool { data.preferences.quietUntil.map { $0 > clock() } ?? false }
     var currentProfile: SalaryProfile {
-        guard let version = data.versions.last else { return SalaryProfile() }
-        return SalaryEngine.profile(for: SalaryEngine.dayKey(Date(), timeZoneID: version.profile.schedule.timeZoneID), versions: data.versions)
+        SalaryEngine.activeVersion(at: clock(), versions: data.versions)?.profile ?? SalaryProfile()
     }
     var editingProfile: SalaryProfile { data.versions.last?.profile ?? SalaryProfile() }
     var todayEvents: [SalaryEvent] { isDemo ? (demoLedger?.events ?? []) : (snapshot.flatMap { data.days[$0.id]?.events } ?? []) }
+    var realTodayEvents: [SalaryEvent] {
+        guard let context = try? SalaryEngine.context(at: clock(), versions: data.versions) else { return [] }
+        return data.days[context.id]?.events ?? []
+    }
     var earnedCents: Double { snapshot?.earnedCents(at: now) ?? 0 }
     var remaining: TimeInterval { max(0, (snapshot?.shiftEnd ?? now).timeIntervalSince(now)) }
     var isFinished: Bool { snapshot?.shiftEnd.map { now >= $0 } ?? false }
@@ -93,19 +98,36 @@ final class SalaryStore: ObservableObject {
     }
     var amountText: String { privacy ? "¥•••" : SalaryEngine.formatYuan(cents: earnedCents) }
 
-    private init() {
-        storageURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    init(storageURL: URL? = nil, clock: @escaping () -> Date = Date.init, startRuntime: Bool = true) {
+        self.clock = clock
+        self.storageURL = storageURL ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("SalaryIsland", isDirectory: true).appendingPathComponent("salary-v1.json")
-        if FileManager.default.fileExists(atPath: storageURL.path) {
+        if FileManager.default.fileExists(atPath: self.storageURL.path) {
             do {
-                data = try JSONDecoder().decode(SalaryData.self, from: Data(contentsOf: storageURL))
-                guard data.schema == 1 else { throw NSError(domain: "SalaryIsland", code: 1) }
-                for version in data.versions { try version.profile.validate() }
+                var loaded = try JSONDecoder().decode(SalaryData.self, from: Data(contentsOf: self.storageURL))
+                guard loaded.schema == 1 else { throw NSError(domain: "SalaryIsland", code: 1) }
+                for version in loaded.versions { try version.profile.validate() }
+                let legacy = loaded.versions
+                loaded.versions = legacy.map { version in
+                    var value = version
+                    value.effectiveAt = SalaryEngine.activation(of: version, in: legacy)
+                    value.effectiveDay = SalaryEngine.dayKey(value.effectiveAt!, timeZoneID: value.profile.schedule.timeZoneID)
+                    return value
+                }
+                var days: [String: SalaryDayLedger] = [:]
+                for var ledger in loaded.days.values {
+                    let id = SalaryEngine.ledgerID(day: ledger.snapshot.dayKey, zone: ledger.snapshot.timeZoneID)
+                    guard days[id] == nil else { throw SalaryStoreError("重复的薪酬记录。") }
+                    ledger.snapshot.id = id; days[id] = ledger
+                }
+                loaded.days = days
+                data = loaded
             } catch {
                 loadFailed = true
                 errorMessage = "本地薪酬记录无法读取，已保留原文件。请先备份后再处理，当前不会覆盖它。"
             }
         }
+        guard startRuntime else { tick(); return }
         let center = NSWorkspace.shared.notificationCenter
         observers.append(center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.sleeping = true; self?.toast = nil; self?.refreshTimer() }
@@ -132,7 +154,7 @@ final class SalaryStore: ObservableObject {
 
     func refreshTimer() {
         timer?.invalidate(); timer = nil
-        if locked || sleeping || fullscreen { toast = nil; return }
+        if locked || sleeping { toast = nil; return }
         tick()
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
@@ -143,21 +165,30 @@ final class SalaryStore: ObservableObject {
     }
 
     func tick(silent: Bool = false) {
-        let realNow = Date()
+        guard !loadFailed else { snapshot = nil; return }
+        let realNow = clock()
         let date = isDemo ? (demoBase ?? realNow).addingTimeInterval(realNow.timeIntervalSince(demoStarted ?? realNow)) : realNow
         now = date
-        defer { previousTick = date }
-        if let toastAt, realNow.timeIntervalSince(toastAt) >= 4, interactionSources.isEmpty { toast = nil }
+        defer { previousTick = date; previousRealTick = realNow }
+        if let toastAt, realNow.timeIntervalSince(toastAt) >= 4, interactionSources.subtracting(["settings"]).isEmpty { toast = nil }
         guard configured || isDemo else { snapshot = nil; return }
         do {
             var ledger: SalaryDayLedger
             if isDemo {
+                if configured {
+                    let context = try SalaryEngine.context(at: realNow, versions: data.versions)
+                    var realLedger = try data.days[context.id] ?? SalaryDayLedger(snapshot: SalaryEngine.snapshot(at: realNow, versions: data.versions))
+                    let prior = realLedger
+                    _ = realLedger.advance(now: realNow, previous: previousRealTick, milestones: data.milestones, blocked: true, busy: false)
+                    if realLedger != prior || data.days[context.id] == nil {
+                        var updated = data; updated.days[context.id] = realLedger; try commit(updated)
+                    }
+                }
                 guard let demoLedger else { return }
                 ledger = demoLedger
             } else {
-                let profile = currentProfile
-                let key = SalaryEngine.dayKey(date, timeZoneID: profile.schedule.timeZoneID)
-                if let existing = data.days[key] { ledger = existing }
+                let context = try SalaryEngine.context(at: date, versions: data.versions)
+                if let existing = data.days[context.id] { ledger = existing }
                 else { ledger = SalaryDayLedger(snapshot: try SalaryEngine.snapshot(at: date, versions: data.versions)) }
             }
             let old = ledger
@@ -168,8 +199,8 @@ final class SalaryStore: ObservableObject {
             let event = ledger.advance(now: date, previous: previousTick, milestones: milestones, blocked: blocked, busy: busy, silent: silent)
             if isDemo { demoLedger = ledger }
             else if old != ledger || data.days[ledger.snapshot.id] == nil {
-                data.days[ledger.snapshot.id] = ledger
-                persist()
+                var updated = data; updated.days[ledger.snapshot.id] = ledger
+                try commit(updated)
             }
             if let event { present(event, demo: isDemo) }
         } catch { errorMessage = "暂时无法计算：\(error.localizedDescription)" }
@@ -177,53 +208,72 @@ final class SalaryStore: ObservableObject {
 
     private func present(_ event: SalaryEvent, demo: Bool) {
         let options = SalaryCopy.variants(for: event, tone: data.preferences.tone)
-        let date = Date()
+        let date = clock()
         let fresh = options.filter { date.timeIntervalSince(data.copyHistory[$0] ?? .distantPast) >= 7 * 86400 }
         let message = fresh.first ?? options.first ?? event.name
         toast = SalaryToast(title: event.name, message: message, symbol: event.symbol, isDemo: demo)
         toastAt = date
-        if !demo { data.copyHistory[message] = date; persist() }
+        if !demo { var updated = data; updated.copyHistory[message] = date; try? commit(updated) }
         if data.preferences.sound && !privacy && !quiet { NSSound(named: "Pop")?.play() }
     }
 
-    func setPrivacy(_ value: Bool) {
-        data.preferences.privacy = value
-        toast = nil
-        suppressPending()
-        persist(); tick(silent: true)
+    @discardableResult
+    func setPrivacy(_ value: Bool) -> Bool {
+        do {
+            var updated = data; updated.preferences.privacy = value
+            suppressPending(in: &updated)
+            try commit(updated); toast = nil; tick(silent: true)
+            return true
+        } catch { return false }
     }
 
-    func toggleQuiet() {
-        if quiet { data.preferences.quietUntil = nil }
-        else {
-            data.preferences.quietUntil = snapshot?.shiftEnd.flatMap { $0 > Date() ? $0 : nil }
-                ?? Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))
-        }
-        toast = nil; suppressPending(); persist(); tick(silent: true)
+    @discardableResult
+    func toggleQuiet() -> Bool {
+        do {
+            var updated = data
+            if quiet { updated.preferences.quietUntil = nil }
+            else {
+                let realSnapshot = try? SalaryEngine.snapshot(at: clock(), versions: data.versions)
+                updated.preferences.quietUntil = realSnapshot?.shiftEnd.flatMap { $0 > clock() ? $0 : nil }
+                    ?? Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: clock()))
+            }
+            suppressPending(in: &updated)
+            try commit(updated); toast = nil; tick(silent: true)
+            return true
+        } catch { return false }
     }
 
-    private func suppressPending() {
-        if let id = snapshot?.id, var ledger = data.days[id] { ledger.skipPending(); data.days[id] = ledger }
+    private func suppressPending(in value: inout SalaryData) {
+        for id in Array(value.days.keys) { value.days[id]?.skipPending() }
+    }
+
+    private func proposedPlan(_ profile: SalaryProfile) throws -> (SalaryVersion, [SalaryVersion], SalarySnapshot) {
+        guard !loadFailed else { throw SalaryStoreError("本地记录读取失败，已禁止覆盖。") }
+        let proposed = try SalaryEngine.proposedVersion(for: profile, versions: data.versions, now: clock())
+        let instant = proposed.effectiveAt!
+        var versions = data.versions.filter { SalaryEngine.activation(of: $0, in: data.versions) < instant }
+        versions.append(proposed)
+        return (proposed, versions, try SalaryEngine.snapshot(at: instant, versions: versions))
     }
 
     func previewProfile(_ profile: SalaryProfile) throws -> (String, SalarySnapshot) {
-        try profile.validate()
-        let effective = configured ? try SalaryEngine.effectiveDay(for: profile, versions: data.versions, now: Date()) : SalaryEngine.dayKey(Date(), timeZoneID: profile.schedule.timeZoneID)
-        var versions = data.versions.filter { $0.effectiveDay < effective }
-        versions.append(SalaryVersion(effectiveDay: effective, profile: profile))
-        let date = SalaryEngine.date(for: effective, timeZoneID: profile.schedule.timeZoneID)
-        return (effective, try SalaryEngine.snapshot(at: date, versions: versions))
+        let (proposed, _, snapshot) = try proposedPlan(profile)
+        let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.timeZone = TimeZone(identifier: profile.schedule.timeZoneID)
+        return (formatter.string(from: proposed.effectiveAt!) + " · " + profile.schedule.timeZoneID, snapshot)
     }
 
     func saveProfile(_ profile: SalaryProfile) throws {
-        guard !loadFailed else { throw SalaryStoreError("本地记录读取失败，已禁止覆盖。") }
         let first = !configured
-        let (effective, _) = try previewProfile(profile)
-        data.versions.removeAll { $0.effectiveDay >= effective }
-        data.versions.append(SalaryVersion(effectiveDay: effective, profile: profile))
-        if effective == SalaryEngine.dayKey(Date(), timeZoneID: profile.schedule.timeZoneID) { data.days.removeValue(forKey: effective) }
-        isDemo = false; demoLedger = nil; toast = nil
-        persist(); tick(silent: true)
+        let (proposed, versions, _) = try proposedPlan(profile)
+        var updated = data; updated.versions = versions
+        if proposed.effectiveAt! <= clock() {
+            let context = try SalaryEngine.context(at: clock(), versions: versions)
+            updated.days.removeValue(forKey: context.id)
+        }
+        try commit(updated)
+        isDemo = false; demoLedger = nil; toast = nil; previousTick = nil
+        tick(silent: true)
         if first { welcomeMessage = "你的工资开始按秒营业了。今天的快乐，从这里开始。" }
     }
 
@@ -238,8 +288,9 @@ final class SalaryStore: ObservableObject {
         let corrected = try correctedToday(monthlyCents: monthlyCents)
         guard var ledger = data.days[corrected.id] else { return }
         ledger.snapshot = corrected; ledger.skipPending()
-        _ = ledger.advance(now: Date(), previous: nil, milestones: data.milestones, blocked: true, busy: false, silent: true)
-        data.days[corrected.id] = ledger; toast = nil; persist(); tick(silent: true)
+        _ = ledger.advance(now: clock(), previous: nil, milestones: data.milestones, blocked: true, busy: false, silent: true)
+        var updated = data; updated.days[corrected.id] = ledger
+        try commit(updated); toast = nil; tick(silent: true)
     }
 
     func saveMilestones(_ items: [SalaryMilestone]) throws {
@@ -248,13 +299,16 @@ final class SalaryStore: ObservableObject {
             guard !item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, item.name.count <= 16,
                   item.cents > 0, item.cents <= 100_000_000_000 else { throw SalaryStoreError("目标名称需为1–16个字，金额需大于0且不超过10亿元。") }
         }
-        data.milestones = items.sorted { $0.cents < $1.cents }
-        suppressPending(); toast = nil; persist(); tick(silent: true)
+        var updated = data; updated.milestones = items.sorted { $0.cents < $1.cents }
+        suppressPending(in: &updated)
+        try commit(updated); toast = nil; tick(silent: true)
     }
 
     func savePreferences(_ preferences: SalaryPreferences) throws {
         if preferences.referenceEnabled && !(1...100_000_000_000).contains(preferences.referenceCents) { throw SalaryStoreError("请填写有效的参考月薪。") }
-        data.preferences = preferences; toast = nil; persist(); tick(silent: true)
+        var updated = data; updated.preferences = preferences
+        suppressPending(in: &updated)
+        try commit(updated); toast = nil; tick(silent: true)
     }
 
     func referenceMessage() -> String {
@@ -265,8 +319,8 @@ final class SalaryStore: ObservableObject {
         let ratio = Double(current.monthlyCents - p.referenceCents) / Double(p.referenceCents)
         if abs(ratio) < 0.1 { return "与参考相差不到10%。按自己的节奏来。" }
         let key = "\(p.referenceCents)-\(p.referenceTax.rawValue)"
-        if p.referenceHumor && Date().timeIntervalSince(p.referenceLastShown[key] ?? .distantPast) >= 7 * 86400 {
-            data.preferences.referenceLastShown[key] = Date(); persist()
+        if p.referenceHumor && clock().timeIntervalSince(p.referenceLastShown[key] ?? .distantPast) >= 7 * 86400 {
+            var updated = data; updated.preferences.referenceLastShown[key] = clock(); try? commit(updated)
             if ratio > 0 { return "这份报价，比你设的参考更亮眼。" }
             switch p.tone {
             case .gentle: return "你的努力值得好待遇，也可以留意新机会。"
@@ -281,33 +335,42 @@ final class SalaryStore: ObservableObject {
         let p = SalaryProfile(monthlyCents: 1_760_000, tax: .afterTax, schedule: SalarySchedule(timeZoneID: "Asia/Shanghai"))
         let base = SalaryEngine.date(for: "2026-01-05", timeZoneID: "Asia/Shanghai").addingTimeInterval(9 * 3600 + 11 * 60 + 55)
         if let snap = try? SalaryEngine.snapshot(at: base, versions: [.init(effectiveDay: "2026-01-01", profile: p)]) {
-            demoLedger = SalaryDayLedger(snapshot: snap); demoBase = base; demoStarted = Date()
+            demoLedger = SalaryDayLedger(snapshot: snap); demoBase = base; demoStarted = clock()
             isDemo = true; previousTick = base; toast = nil; tick(silent: true)
         }
     }
 
     func previewCelebration() {
         guard !privacy else { return }
-        present(.init(id: "preview", kind: .milestone, name: "一杯奶茶", cents: 2000, symbol: "cup.and.saucer.fill", occurredAt: Date()), demo: true)
+        present(.init(id: "preview", kind: .milestone, name: "一杯奶茶", cents: 2000, symbol: "cup.and.saucer.fill", occurredAt: clock()), demo: true)
     }
 
     func endDemo() { isDemo = false; demoLedger = nil; demoBase = nil; demoStarted = nil; toast = nil; previousTick = nil; tick() }
 
-    func clearSalaryData() {
-        data = SalaryData(); snapshot = nil; loadFailed = false; isDemo = false; demoLedger = nil; toast = nil
-        persist(); tick()
+    func clearSalaryData() throws {
+        try commit(SalaryData(), allowRecovery: true)
+        loadFailed = false; snapshot = nil; isDemo = false; demoLedger = nil; toast = nil; previousTick = nil
+        tick()
     }
 
-    private func persist() {
-        guard !loadFailed else { return }
+    private func commit(_ candidate: SalaryData, allowRecovery: Bool = false) throws {
+        guard !loadFailed || allowRecovery else {
+            throw SalaryStoreError("本地薪酬记录无法读取，已保留原文件；本次修改未保存。")
+        }
         do {
             let dir = storageURL.deletingLastPathComponent()
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-            let encoded = try JSONEncoder().encode(data)
+            let encoded = try JSONEncoder().encode(candidate)
             try encoded.write(to: storageURL, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: storageURL.path)
-        } catch { errorMessage = "保存失败，请检查磁盘空间。当前设置尚未可靠保存。" }
+            data = candidate; errorMessage = nil
+        } catch {
+            let failure = SalaryStoreError("保存失败，请检查磁盘空间与文件权限。本次修改未保存。")
+            errorMessage = failure.message
+            throw failure
+        }
     }
+
 }
 
 struct SalaryStoreError: LocalizedError {

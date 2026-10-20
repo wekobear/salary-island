@@ -69,6 +69,10 @@ struct ContentView: View {
             && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
         {
             chinWidth = 640
+        } else if vm.notchState == .closed && !vm.hideOnClosed
+            && !coordinator.expandingView.show && !coordinator.sneakPeek.show
+        {
+            chinWidth += 212
         } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
             && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle)
             && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
@@ -382,9 +386,8 @@ struct ContentView: View {
                     }
                 }
                 .transition(
-                    .scale(scale: 0.8, anchor: .top)
-                    .combined(with: .opacity)
-                    .animation(.smooth(duration: 0.35))
+                    reduceMotion ? .opacity : .scale(scale: 0.96, anchor: .top)
+                        .combined(with: .opacity).animation(.easeOut(duration: 0.22))
                 )
                 .zIndex(1)
                 .allowsHitTesting(vm.notchState == .open)

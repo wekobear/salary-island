@@ -644,6 +644,8 @@ struct Media: View {
                     "Show music live activity",
                     isOn: $coordinator.musicLiveActivityEnabled.animation()
                 )
+                Text("薪动日常常驻时优先显示倒计时和金额；播放控制请打开音乐页。")
+                    .font(.caption).foregroundStyle(.secondary)
                 Toggle("Show sneak peek on playback changes", isOn: $enableSneakPeek)
                 Picker("Sneak Peek Style", selection: $sneakPeekStyles) {
                     ForEach(SneakPeekStyle.allCases) { style in

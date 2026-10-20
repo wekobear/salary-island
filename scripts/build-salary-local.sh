@@ -4,7 +4,7 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 xcodebuild -project boringNotch.xcodeproj -scheme boringNotch -configuration Debug \
   -derivedDataPath work/build CODE_SIGNING_ALLOWED=NO build
-APP="work/build/Build/Products/Debug/SalaryIsland.app"
+APP="work/build/Build/Products/Debug/薪动日常.app"
 for framework in "$APP"/Contents/Frameworks/*.framework; do
   codesign --force --deep --sign - "$framework"
 done

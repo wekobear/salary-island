@@ -49,7 +49,7 @@ struct SalarySettingsView: View {
                     VStack(spacing: 16) {
                         Image(systemName: "eye.slash").font(.system(size: 38)).foregroundStyle(SalaryPalette.mint)
                         Text("金额和快乐清单都藏好了。")
-                        Button("关闭隐私模式后编辑") { store.setPrivacy(false); preferences.privacy = false }.buttonStyle(SalaryPrimaryButtonStyle())
+                        Button("关闭隐私模式后编辑") { if store.setPrivacy(false) { preferences.privacy = false } }.buttonStyle(SalaryPrimaryButtonStyle())
                     }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     Group {
@@ -57,6 +57,7 @@ struct SalarySettingsView: View {
                         else if tab == 1 { targetForm }
                         else { preferencesForm }
                     }.formStyle(.grouped)
+                    if tab == 0 { profileActions }
                 }
                 if let welcome = store.welcomeMessage {
                     Label(welcome, systemImage: "sparkles").font(.system(size: 12)).foregroundStyle(SalaryPalette.mint).padding(.horizontal, 24).padding(.vertical, 8)
@@ -70,6 +71,7 @@ struct SalarySettingsView: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .preferredColorScheme(.dark)
+        .tint(SalaryPalette.mint)
         .onAppear(perform: load)
         .alert("只修正今日估算？", isPresented: $confirmCorrection) {
             Button("取消", role: .cancel) {}
@@ -79,14 +81,14 @@ struct SalarySettingsView: View {
         }
         .alert("清除薪酬数据？", isPresented: $confirmClear) {
             Button("取消", role: .cancel) {}
-            Button("清除", role: .destructive) { store.clearSalaryData(); load(); message = "薪酬数据已清除。" }
+            Button("清除", role: .destructive) { perform { try store.clearSalaryData(); load(); message = "薪酬数据已清除。" } }
         } message: { Text("删除本应用的工资配置、日记录、成就与文案历史。Boring Notch 的原模块数据不受影响。") }
     }
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 12) {
             Image(systemName: "cup.and.saucer.fill").font(.system(size: 31)).foregroundStyle(SalaryPalette.mint).padding(.top, 30)
-            Text("薪动岛").font(.system(size: 27, weight: .semibold, design: .rounded))
+            Text("薪动日常").font(.system(size: 27, weight: .semibold, design: .rounded))
             Text("今天也没有白上班。") .font(.system(size: 11)).foregroundStyle(.white.opacity(0.5)).padding(.bottom, 28)
             ForEach(0..<3) { index in
                 Button { tab = index; message = "" } label: {
@@ -140,10 +142,10 @@ struct SalarySettingsView: View {
                             .accessibilityLabel("周\(["一","二","三","四","五","六","日"][index])\(profile.schedule.weekdays.contains(day) ? "已选" : "未选")")
                     }
                 }
-                HStack { timePicker("上班", minute: $profile.schedule.startMinute); Spacer(); timePicker("下班", minute: $profile.schedule.endMinute) }
+                HStack { Text("上下班"); Spacer(); timePicker("上班", minute: $profile.schedule.startMinute); Text("至").foregroundStyle(.secondary); timePicker("下班", minute: $profile.schedule.endMinute) }
                 Toggle("有午休", isOn: $profile.schedule.hasBreak)
                 if profile.schedule.hasBreak {
-                    HStack { timePicker("午休开始", minute: $profile.schedule.breakStartMinute); Spacer(); timePicker("午休结束", minute: $profile.schedule.breakEndMinute) }
+                    HStack { Text("午休时间"); Spacer(); timePicker("午休开始", minute: $profile.schedule.breakStartMinute); Text("至").foregroundStyle(.secondary); timePicker("午休结束", minute: $profile.schedule.breakEndMinute) }
                     Toggle("午休也计薪", isOn: $profile.schedule.paidBreak)
                 }
                 TextField("工作时区", text: $profile.schedule.timeZoneID)
@@ -153,7 +155,7 @@ struct SalarySettingsView: View {
                         DatePicker("日期", selection: $exceptionDate, displayedComponents: .date).labelsHidden()
                         Toggle("这天上班", isOn: $exceptionWork)
                         Button("加入计划") {
-                            let key = SalaryEngine.dayKey(exceptionDate, timeZoneID: profile.schedule.timeZoneID)
+                            let key = SalaryEngine.dayKey(exceptionDate, timeZoneID: TimeZone.current.identifier)
                             let today = SalaryEngine.dayKey(Date(), timeZoneID: profile.schedule.timeZoneID)
                             guard key >= today else { message = "过去日期不回溯修改。"; isError = true; return }
                             profile.schedule.exceptions[key] = exceptionWork; preview = nil
@@ -168,19 +170,6 @@ struct SalarySettingsView: View {
                 }
             } header: { Text("02  定好营业时间") }
             Section {
-                if let preview {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("\(preview.0) 起生效").font(.headline).foregroundStyle(SalaryPalette.mint)
-                        Text("该日预计 \(SalaryEngine.formatYuan(cents: preview.1.dayCents)) · 每小时 \(SalaryEngine.formatYuan(cents: preview.1.hourlyYuan * 100))") .monospacedDigit()
-                        Text("已开始的班次与历史记录保持不变；月中变更后，本月合计可能不等于月薪。") .font(.caption).foregroundStyle(.secondary)
-                        Button("按此方案保存") { perform { try store.saveProfile(preparedProfile()); message = "已保存。把鼠标移到屏幕顶部，看看工资开始营业。"; self.preview = nil } }
-                            .buttonStyle(SalaryPrimaryButtonStyle())
-                    }
-                } else {
-                    Button(store.configured ? "预览变更" : "看看我的时薪") {
-                        perform { preview = try store.previewProfile(preparedProfile()); message = "" }
-                    }.buttonStyle(SalaryPrimaryButtonStyle())
-                }
                 if store.configured {
                     DisclosureGroup("今天的工资填错了？") {
                         TextField("用于修正今日的月薪", text: $correction)
@@ -192,6 +181,26 @@ struct SalarySettingsView: View {
         }
         .onChange(of: salary) { _, _ in preview = nil }
         .onChange(of: profile) { _, _ in preview = nil }
+    }
+
+    private var profileActions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+                if let preview {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("\(preview.0) 起生效").font(.headline).foregroundStyle(SalaryPalette.mint)
+                        Text("该日预计 \(SalaryEngine.formatYuan(cents: preview.1.dayCents)) · 每小时 \(SalaryEngine.formatYuan(cents: preview.1.hourlyYuan * 100))") .monospacedDigit()
+                        Text("当天已开工则次日生效；切换时区按原计划下一工作日上班时刻生效，不补算新时区已过去的时段。月中变更后合计可能不同于月薪。") .font(.caption).foregroundStyle(.secondary)
+                        Button("按此方案保存") { perform { try store.saveProfile(preparedProfile()); message = "已保存。把鼠标移到屏幕顶部，看看工资开始营业。"; self.preview = nil } }
+                            .buttonStyle(SalaryPrimaryButtonStyle())
+                    }
+                } else {
+                    Button(store.configured ? "预览变更" : "看看我的时薪") {
+                        perform { preview = try store.previewProfile(preparedProfile()); message = "" }
+                    }.buttonStyle(SalaryPrimaryButtonStyle())
+                }
+        }.font(.system(size: 12)).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 24).padding(.vertical, 14)
+            .background(Color(nsColor: .controlBackgroundColor))
     }
 
     private var targetForm: some View {
@@ -207,7 +216,7 @@ struct SalarySettingsView: View {
                             TextField("", text: $item.amount, prompt: Text("金额")).labelsHidden().textFieldStyle(.roundedBorder).frame(width: 85).accessibilityLabel("目标金额，单位元")
                             Button { targets.removeAll { $0.id == item.id } } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless).help("删除这个目标")
                         }
-                        if let event = store.todayEvents.first(where: { $0.id == "milestone:" + item.id }) {
+                        if let event = store.realTodayEvents.first(where: { $0.id == "milestone:" + item.id }) {
                             Label("今日已达成 · \(event.name)（\(SalaryEngine.formatYuan(cents: Double(event.cents)))）", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(SalaryPalette.mint)
                         }
                     }.padding(.vertical, 4)
@@ -223,7 +232,10 @@ struct SalarySettingsView: View {
                         try store.saveMilestones(items); message = "快乐清单已保存。已跨过的门槛不会补弹。"
                     }
                 }.buttonStyle(SalaryPrimaryButtonStyle())
-                Button("预览一条奶茶反馈") { SalarySettingsWindow.shared.hide(); store.previewCelebration(); store.requestOpenIsland?() }
+                Button("预览一条奶茶反馈") {
+                    guard !store.privacy else { message = "请先关闭隐私模式，再预览快乐反馈。"; isError = true; return }
+                    SalarySettingsWindow.shared.hide(); store.previewCelebration(); store.requestOpenIsland?()
+                }
             }
         }
     }
@@ -234,7 +246,7 @@ struct SalarySettingsView: View {
                 Picker("陪你上班的语气", selection: $preferences.tone) { ForEach(SalaryTone.allCases, id: \.self) { Text($0.label).tag($0) } }.pickerStyle(.segmented)
                 Text(preferences.tone == .gentle ? "一杯喜欢的奶茶，已经赚到了。" : preferences.tone == .playful ? "奶茶钱到手。今天先替珍珠打工到这里。" : "今日份窝囊费估算完毕，建议本人离场。") .font(.callout).foregroundStyle(.secondary)
                 Toggle("反馈时播放轻提示音", isOn: $preferences.sound)
-                Toggle("隐私模式", isOn: Binding(get: { store.privacy }, set: { store.setPrivacy($0); preferences.privacy = $0 }))
+                Toggle("隐私模式", isOn: Binding(get: { store.privacy }, set: { if store.setPrivacy($0) { preferences.privacy = $0 } }))
                 Button(store.quiet ? "恢复自动提示" : "安静到下班") { store.toggleQuiet(); preferences.quietUntil = store.data.preferences.quietUntil }
                 Text("全屏、锁屏、隐私与安静模式不自动展开。当前不自动读取系统专注状态。") .font(.caption).foregroundStyle(.secondary)
             } header: { Text("陪伴感，不是存在感轰炸") }
@@ -266,11 +278,11 @@ struct SalarySettingsView: View {
 
     private func timePicker(_ title: String, minute: Binding<Int>) -> some View {
         DatePicker(title, selection: Binding(get: {
-            Calendar.current.startOfDay(for: Date()).addingTimeInterval(Double(minute.wrappedValue * 60))
+            Calendar.current.date(bySettingHour: minute.wrappedValue / 60, minute: minute.wrappedValue % 60, second: 0, of: Date()) ?? Date()
         }, set: { value in
             let c = Calendar.current.dateComponents([.hour, .minute], from: value)
             minute.wrappedValue = (c.hour ?? 0) * 60 + (c.minute ?? 0)
-        }), displayedComponents: .hourAndMinute)
+        }), displayedComponents: .hourAndMinute).labelsHidden().accessibilityLabel(title).fixedSize()
     }
     private func preparedProfile() throws -> SalaryProfile {
         var value = profile; value.monthlyCents = try SalaryEngine.moneyCents(salary)

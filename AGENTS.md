@@ -1,4 +1,4 @@
-# 薪动岛
+# 薪动日常
 
 产品依据为 `docs/PRD-v0.3.md` 及其中的 Notion 当前稿。基于 Boring Notch GPL-3.0 基线 23e7705a4ffcb5d97a54fb1d4135e180084a566d；保留版权与许可证。
 

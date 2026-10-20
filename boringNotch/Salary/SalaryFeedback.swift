@@ -123,6 +123,10 @@ enum SalaryCopy {
             return ["下班！今天出售的时间，已全部交付。", "今日营业结束，快乐正式开张。", "系统提示：你的自由已到账。"]
         case .milestone:
             if tone == .gentle { return ["\(event.name)，已经赚到了。", "又攒下一点生活的小快乐：\(event.name)。", "今天的小奖励：\(event.name)。"] }
+            let isOriginalPreset = SalaryMilestone.defaults.contains { $0.name == event.name && $0.symbol == event.symbol }
+            guard isOriginalPreset else {
+                return ["\(event.name)的钱到手。打工突然具象化了。", "本场打工已赞助：\(event.name)。", "快乐清单新增一项：\(event.name)。"]
+            }
             switch event.symbol {
             case "cup.and.saucer.fill": return ["奶茶钱到手。今天先替珍珠打工到这里。", "本杯奶茶，由刚才认真活着的你赞助。", "珍珠已就位，快乐预算 +1。"]
             case "fork.knife": return ["午饭已被本场打工赞助。", "这顿饭，工位请客。", "劳动成果：一顿不用纠结的好饭。"]

@@ -53,6 +53,7 @@ struct SalaryVersion: Codable, Equatable, Identifiable {
     var id = UUID().uuidString
     var effectiveDay: String
     var profile: SalaryProfile
+    var effectiveAt: Date? = nil
 }
 
 struct SalaryInterval: Codable, Equatable { var start: Date; var end: Date }
@@ -119,7 +120,9 @@ enum SalaryEngine {
         return dayKey(date(for: key, timeZoneID: timeZoneID), timeZoneID: timeZoneID) == key
     }
     static func selected(_ key: String, versions: [SalaryVersion]) -> SalaryVersion? {
-        let ordered = versions.sorted { $0.effectiveDay < $1.effectiveDay }
+        let ordered = versions.sorted { a, b in
+            a.effectiveDay == b.effectiveDay ? activation(of: a, in: versions) < activation(of: b, in: versions) : a.effectiveDay < b.effectiveDay
+        }
         return ordered.last(where: { $0.effectiveDay <= key }) ?? ordered.first
     }
     static func profile(for dayKey: String, versions: [SalaryVersion]) -> SalaryProfile {
@@ -142,14 +145,43 @@ enum SalaryEngine {
         let breakEnd = moment(key, minute: schedule.breakEndMinute, schedule: schedule)
         return [SalaryInterval(start: start, end: breakStart), SalaryInterval(start: breakEnd, end: end)].filter { $0.end > $0.start }
     }
-    static func snapshot(at now: Date, versions: [SalaryVersion]) throws -> SalarySnapshot {
-        guard let first = versions.sorted(by: { $0.effectiveDay < $1.effectiveDay }).first else { throw SalaryCalculationError("请先填写月薪与作息。") }
-        // Effective dates are civil work dates. Resolve using the current effective profile's zone.
-        var key = dayKey(now, timeZoneID: first.profile.schedule.timeZoneID)
-        var version = selected(key, versions: versions)!
-        key = dayKey(now, timeZoneID: version.profile.schedule.timeZoneID)
-        version = selected(key, versions: versions)!
+    static func activation(of version: SalaryVersion, in versions: [SalaryVersion]) -> Date {
+        if let instant = version.effectiveAt { return instant }
+        let ordered = versions.sorted { $0.effectiveDay < $1.effectiveDay }
+        if let index = ordered.firstIndex(where: { $0.id == version.id }), index > 0 {
+            let prior = ordered[index - 1].profile.schedule
+            if prior.timeZoneID != version.profile.schedule.timeZoneID {
+                return moment(version.effectiveDay, minute: prior.startMinute, schedule: prior)
+            }
+        }
+        return date(for: version.effectiveDay, timeZoneID: version.profile.schedule.timeZoneID)
+    }
+    static func activeVersion(at now: Date, versions: [SalaryVersion]) -> SalaryVersion? {
+        let ordered = versions.sorted { activation(of: $0, in: versions) < activation(of: $1, in: versions) }
+        return ordered.last { activation(of: $0, in: versions) <= now } ?? ordered.first
+    }
+    static func ledgerID(day: String, zone: String) -> String { zone + "|" + day }
+    static func context(at now: Date, versions: [SalaryVersion]) throws -> (version: SalaryVersion, day: String, id: String) {
+        guard let version = activeVersion(at: now, versions: versions) else { throw SalaryCalculationError("请先填写月薪与作息。") }
         try version.profile.validate()
+        let day = dayKey(now, timeZoneID: version.profile.schedule.timeZoneID)
+        return (version, day, ledgerID(day: day, zone: version.profile.schedule.timeZoneID))
+    }
+    static func plannedIntervals(_ key: String, version: SalaryVersion, versions: [SalaryVersion]) -> [SalaryInterval] {
+        let paid = intervals(key, schedule: version.profile.schedule)
+        let ordered = versions.sorted { activation(of: $0, in: versions) < activation(of: $1, in: versions) }
+        guard let index = ordered.firstIndex(where: { $0.id == version.id }), index > 0,
+              ordered[index - 1].profile.schedule.timeZoneID != version.profile.schedule.timeZoneID else { return paid }
+        // A timezone transition never earns retroactively in the destination's already elapsed hours.
+        let instant = activation(of: version, in: versions)
+        return paid.compactMap { interval in
+            let start = max(interval.start, instant)
+            return start < interval.end ? SalaryInterval(start: start, end: interval.end) : nil
+        }
+    }
+    static func snapshot(at now: Date, versions: [SalaryVersion]) throws -> SalarySnapshot {
+        let resolved = try context(at: now, versions: versions)
+        let key = resolved.day, version = resolved.version
         let schedule = version.profile.schedule
         let c = calendar(schedule.timeZoneID)
         let day = date(for: key, timeZoneID: schedule.timeZoneID)
@@ -158,41 +190,57 @@ enum SalaryEngine {
         var denominator: Int64 = 0
         while current < month.end {
             let dateKey = dayKey(current, timeZoneID: schedule.timeZoneID)
-            let p = profile(for: dateKey, versions: versions)
-            try p.validate()
-            for interval in intervals(dateKey, schedule: p.schedule) { denominator += Int64(interval.end.timeIntervalSince(interval.start)) }
+            guard let planned = selected(dateKey, versions: versions) else { break }
+            try planned.profile.validate()
+            for interval in plannedIntervals(dateKey, version: planned, versions: versions) {
+                denominator += Int64(interval.end.timeIntervalSince(interval.start))
+            }
             current = c.date(byAdding: .day, value: 1, to: current)!
         }
         guard denominator > 0, denominator <= 32 * 86400 else { throw SalaryCalculationError("当月没有有效计薪时间，请检查工作日与休息日期。") }
-        let paid = intervals(key, schedule: schedule)
-        let work = works(key, schedule: schedule)
-        return SalarySnapshot(id: key, dayKey: key, versionID: version.id, monthlyCents: version.profile.monthlyCents, denominatorSeconds: denominator, intervals: paid,
-            shiftStart: work ? moment(key, minute: schedule.startMinute, schedule: schedule) : nil,
-            shiftEnd: work ? moment(key, minute: schedule.endMinute, schedule: schedule) : nil,
-            tax: version.profile.tax, timeZoneID: schedule.timeZoneID)
+        let paid = plannedIntervals(key, version: version, versions: versions)
+        let ordered = versions.sorted { activation(of: $0, in: versions) < activation(of: $1, in: versions) }
+        let index = ordered.firstIndex(where: { $0.id == version.id }) ?? 0
+        let cutoff = index > 0 && ordered[index - 1].profile.schedule.timeZoneID != schedule.timeZoneID
+            ? activation(of: version, in: versions) : .distantPast
+        return SalarySnapshot(id: resolved.id, dayKey: key, versionID: version.id, monthlyCents: version.profile.monthlyCents, denominatorSeconds: denominator, intervals: paid,
+            shiftStart: paid.isEmpty ? nil : max(moment(key, minute: schedule.startMinute, schedule: schedule), cutoff),
+            shiftEnd: paid.isEmpty ? nil : moment(key, minute: schedule.endMinute, schedule: schedule), tax: version.profile.tax, timeZoneID: schedule.timeZoneID)
     }
-    static func effectiveDay(for newProfile: SalaryProfile, versions: [SalaryVersion], now: Date) throws -> String {
+    static func proposedVersion(for newProfile: SalaryProfile, versions: [SalaryVersion], now: Date) throws -> SalaryVersion {
         try newProfile.validate()
-        let oldZone = versions.first?.profile.schedule.timeZoneID ?? newProfile.schedule.timeZoneID
-        let oldKey = dayKey(now, timeZoneID: oldZone)
-        let old = profile(for: oldKey, versions: versions)
-        let zoneChanged = old.schedule.timeZoneID != newProfile.schedule.timeZoneID && !versions.isEmpty
+        guard let old = activeVersion(at: now, versions: versions)?.profile else {
+            let key = dayKey(now, timeZoneID: newProfile.schedule.timeZoneID)
+            return SalaryVersion(effectiveDay: key, profile: newProfile, effectiveAt: date(for: key, timeZoneID: newProfile.schedule.timeZoneID))
+        }
         let key = dayKey(now, timeZoneID: old.schedule.timeZoneID)
-        if !zoneChanged {
+        let zoneChanged = old.schedule.timeZoneID != newProfile.schedule.timeZoneID
+        let c = calendar(old.schedule.timeZoneID)
+        var instant = date(for: key, timeZoneID: old.schedule.timeZoneID)
+        if zoneChanged {
+            var found = false
+            for _ in 0..<370 {
+                instant = c.date(byAdding: .day, value: 1, to: instant)!
+                let next = dayKey(instant, timeZoneID: old.schedule.timeZoneID)
+                if works(next, schedule: old.schedule) {
+                    instant = moment(next, minute: old.schedule.startMinute, schedule: old.schedule)
+                    found = true; break
+                }
+            }
+            guard found else { throw SalaryCalculationError("旧计划未来一年没有工作日，无法确定时区切换时刻。") }
+        } else {
             let starts = [old.schedule, newProfile.schedule].compactMap { s -> Date? in
                 works(key, schedule: s) ? moment(key, minute: s.startMinute, schedule: s) : nil
             }
-            if starts.min().map({ now < $0 }) ?? true { return key }
+            if let firstStart = starts.min(), now >= firstStart {
+                // Rules must also take effect on a newly configured rest day.
+                instant = c.date(byAdding: .day, value: 1, to: instant)!
+            }
         }
-        let schedule = zoneChanged ? old.schedule : newProfile.schedule
-        let c = calendar(schedule.timeZoneID)
-        var day = date(for: key, timeZoneID: schedule.timeZoneID)
-        for _ in 0..<370 {
-            day = c.date(byAdding: .day, value: 1, to: day)!
-            let next = dayKey(day, timeZoneID: schedule.timeZoneID)
-            if works(next, schedule: schedule) { return next }
-        }
-        throw SalaryCalculationError("未来一年没有有效工作日，请检查排班例外。")
+        return SalaryVersion(effectiveDay: dayKey(instant, timeZoneID: newProfile.schedule.timeZoneID), profile: newProfile, effectiveAt: instant)
+    }
+    static func effectiveDay(for newProfile: SalaryProfile, versions: [SalaryVersion], now: Date) throws -> String {
+        try proposedVersion(for: newProfile, versions: versions, now: now).effectiveDay
     }
     static func moneyCents(_ text: String) throws -> Int64 {
         let raw = text.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -48,7 +48,7 @@ struct UpdaterSettingsView: View {
     
     var body: some View {
         Section("软件更新") {
-            Text("薪动岛本地体验版未启用自动更新，不会被上游版本覆盖。")
+            Text("薪动日常本地体验版未启用自动更新，不会被上游版本覆盖。")
                 .foregroundStyle(.secondary)
         }
     }

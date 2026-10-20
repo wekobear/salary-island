@@ -29,20 +29,20 @@ struct DynamicNotchApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("薪动岛", systemImage: "yensign.circle", isInserted: $showMenuBarIcon) {
+        MenuBarExtra("薪动日常", systemImage: "yensign.circle", isInserted: $showMenuBarIcon) {
             Button("薪酬与快乐设置") {
                 DispatchQueue.main.async {
                     SalarySettingsWindow.shared.show()
                 }
             }
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
-            Button("展开薪动岛") { appDelegate.showSalaryIsland() }
+            Button("展开薪动日常") { appDelegate.showSalaryIsland() }
             Button("Boring Notch 原功能设置") { SettingsWindowController.shared.showWindow() }
             Divider()
-            Button("重新启动薪动岛") {
+            Button("重新启动薪动日常") {
                 ApplicationRelauncher.restart()
             }
-            Button("退出薪动岛", role: .destructive) {
+            Button("退出薪动日常", role: .destructive) {
                 NSApplication.shared.terminate(self)
             }
             .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
