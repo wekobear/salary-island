@@ -7,4 +7,4 @@
 - 修复未来休息日、跨时区账本、后台设置阻塞提示、保存失败误报、日期偏移、改名文案及演示/正式成就展示混用。
 - 62项核心、22项Store检查及本地构建/签名验证通过。系统级剩余验证见测试报告。
 
-应用 `薪动日常.app`，技术模块仍为SalaryIsland，bundle ID/data保持不变。基于Boring Notch，保留GPL-3.0，提供对应源码。仅本地ad-hoc签名体验包，未做Developer ID公证。本轮未推送GitHub、未合并主分支。
+应用 `薪动日常.app`，技术模块仍为SalaryIsland，bundle ID/data保持不变。基于Boring Notch，保留GPL-3.0，提供对应源码。仅本地ad-hoc签名体验包，未做Developer ID公证。已按用户要求推送至 wekobear/salary-island，并以 v0.1.1 提供体验包与对应源码；未合并主分支。

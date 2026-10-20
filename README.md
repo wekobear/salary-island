@@ -1,213 +1,41 @@
-# 薪动岛 · Salary Island
+# 薪动日常
 
-基于 Boring Notch 改造的 macOS 薪酬灵动岛：下班倒计时、今日估算收入、每秒/分钟/小时工资，以及“奶茶到手了”的快乐里程碑。
+**下班倒计时在走，奶茶钱也在到账。**
 
-**当前版本：v0.1.0 本地体验版。** Apple Silicon，macOS 14+；已在 macOS 26 的内置刘海屏运行验证。51项计算与提示调度检查通过；多显示器、长期能耗等仍待验证。此项目不是上游官方发行版。
+一款陪你上班的 macOS 灵动岛小工具。把月薪换算成每秒、每分钟、每小时的收入，看着时间变成奶茶、好饭和一件喜欢的衣服。
 
-- [下载体验版](https://github.com/wekobear/salary-island/releases/tag/v0.1.0)
-- [使用与构建说明](README-SalaryIsland.md)
-- [产品文档](docs/PRD-v0.3.md) · [测试与安全检查](docs/TEST-SECURITY-v0.1.md)
+[下载 v0.1.1 体验版](https://github.com/wekobear/salary-island/releases/tag/v0.1.1) · [使用与构建说明](README-SalaryIsland.md)
 
-金额为按作息折算的估算值，不连接银行。首次可点击“播放奶茶演示”；薪酬数据保存在本机。保留 Boring Notch 作者声明与 [GPL-3.0](LICENSE)。以下为上游项目说明。
+## 瞄一眼，今天也没有白上班
 
----
+![薪动日常主界面：左侧下班倒计时，右侧今日估算收入，下方显示收入速率与快乐目标进度](docs/images/main-dashboard.png)
 
-<h1 align="center">
-  <br>
-  <a href="http://theboring.name"><img src="https://framerusercontent.com/images/RFK4vs0kn8pRMuOO58JeyoemXA.png?scale-down-to=256" alt="Boring Notch" width="150"></a>
-  <br>
-  Boring Notch
-  <br>
-</h1>
+*实际运行截图，使用内置虚构演示数据。*
 
+## 它会陪你做什么
 
-<p align="center">
-  <a title="Crowdin" target="_blank" href="https://crowdin.com/project/boring-notch"><img src="https://badges.crowdin.net/boring-notch/localized.svg"></a>
-  <img src="https://github.com/TheBoredTeam/boring.notch/actions/workflows/cicd.yml/badge.svg" alt="TheBoringNotch Build & Test" style="margin-right: 10px;" />
-  <a href="https://discord.gg/c8JXA7qrPm">
-    <img src="https://dcbadge.limes.pink/api/server/https://discord.gg/c8JXA7qrPm?style=flat" alt="Discord Badge" />
-  </a>
-  <a href="https://www.ko-fi.com/alexander5015">
-    <img src="https://srv-cdn.himpfen.io/badges/kofi/kofi-flat.svg" alt="Ko-Fi" />
-  </a>
-</p>
+- **等下班**：紧凑和展开状态都把倒计时放在左边，收入放在右边。
+- **看工资增长**：展示今日估算收入，以及每秒、每分钟、每小时的收入速率。
+- **领一点快乐**：自定义最多 5 项每日目标，用细进度条看下一杯奶茶还有多远。达成时给一句短反馈，倒计时和金额保持可见。
+- **选择陪伴方式**：温柔、抽象、嘴替三种语气；眼睛隐藏收入和目标，铃铛让提示安静到下班，点击都有状态提示。
+- **按自己的作息来**：支持工作日、上下班、午休、临时休息和补班；保存前预览日薪、时薪与生效时间。
 
-<p align="center">
-  <a href="https://trendshift.io/repositories/14815?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14815" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/14815" alt="TheBoredTeam%2Fboring.notch |    Trendshift" width="250" height="55"/></a>
-</p>
-<!--Welcome to **Boring.Notch**, the coolest way to make your MacBook's notch the star of the show! Forget about those boring status bars—our notch turns into a dynamic music control center, complete with a snazzy visualizer and all the music controls you need. It's like having a mini concert right at the top of your screen! -->
+## 开始使用
 
-Say hello to **Boring Notch**, the coolest way to make your MacBook’s notch the star of the show! Say goodbye to boring status bars: with Boring Notch, your notch transforms into a dynamic music control center, complete with a vibrant visualizer and all the essential music controls you need. But that’s just the start! Boring Notch also offers calendar integration, a handy file shelf with AirDrop support, a complete MacOS HUD replacement and more!
+1. 在 [Releases](https://github.com/wekobear/salary-island/releases/tag/v0.1.1) 下载 macOS 体验包，解压后打开「薪动日常.app」。
+2. 点击「播放奶茶演示」先看效果，或填写月薪与作息，预览后保存。
+3. 把鼠标移到屏幕顶部灵动岛，查看倒计时、今日收入和下一份小快乐。
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/2d5f69c1-6e7b-4bc2-a6f1-bb9e27cf88a8" alt="Demo GIF" />
-</p>
+当前体验包适用于 **Apple Silicon、macOS 14+**，已在 macOS 26 内置刘海屏验证；尚未做 Developer ID 公证。升级沿用原配置，无需重新填写月薪。
 
-<!--https://github.com/user-attachments/assets/19b87973-4b3a-4853-b532-7e82d1d6b040-->
----
-<!--## Table of Contents
-- [Installation](#installation)
-- [Usage](#usage)
-- [Roadmap](#-roadmap)
-- [Building from Source](#building-from-source)
-- [Contributing](#-contributing)
-- [Join our Discord Server](#join-our-discord-server)
-- [Star History](#star-history)
-- [Buy us a coffee!](#buy-us-a-coffee)
-- [Acknowledgments](#-acknowledgments)-->
+收入是按计划作息折算的**估算值**，不连接银行；目标独立比较，不扣除收入，也不代表已经消费。薪酬数据保存在本机，无需账号。首版支持同一天内的班次，节假日与调休需手动设置。
 
-## Installation
+## 版本与开发
 
-**System Requirements:**
-- macOS **14 Sonoma** or later
-- Apple Silicon or Intel Mac
+v0.1.1 更新了主界面布局、开关 Toast、目标进度和设置底栏，修复排班生效、时区记录及保存失败反馈等问题。62 项核心检查与 22 项 Store 检查通过。
 
----
+[更新说明](docs/RELEASE-v0.1.1.md) · [测试与已知限制](docs/TEST-SECURITY-v0.1.md) · [产品文档](docs/PRD-v0.3.md)
 
-### Option 1: Download and Install Manually
+## 致谢与许可证
 
-<a href="https://github.com/TheBoredTeam/boring.notch/releases/latest/download/boringNotch.dmg" target="_self"><img width="200" src="https://github.com/user-attachments/assets/e3179be1-8416-4b8a-b417-743e1ecc67d6" alt="Download for macOS" /></a>
-
-Once downloaded, open the `.dmg` and move **Boring Notch** to your `/Applications` folder.
-
-> [!IMPORTANT]
-> We don't have an Apple Developer account (yet 👀), so macOS will warn you that Boring Notch is from an unidentified developer on first launch. This is expected behavior.
->
-> You'll need to bypass this before the app will open. You only need to do this once. Use one of the methods below.
-
----
-
-#### Recommended: Terminal (Always Works)
-
-This is the quickest and easiest method. It only requires a single command and works consistently for all users. System Settings can sometimes fail and won't work for non-admin users.
-
-After moving Boring Notch to your Applications folder, run:
-
-```bash
-xattr -dr com.apple.quarantine "/Applications/Boring Notch.app"
-```
-
-Then open the app normally.
-
----
-
-#### Alternative: System Settings
-
-> [!NOTE]
-> This method doesn't work for all users. If this doesn't work, use the Terminal method above.
-
-1. Try to open the app — you'll see a security warning.
-2. Click **OK** to dismiss it.
-3. Open **System Settings** > **Privacy & Security**.
-4. Scroll to the bottom and click **Open Anyway** next to the Boring Notch warning.
-5. Confirm if prompted.
-
----
-
-### Option 2: Install via Homebrew
-
-You can also install using [Homebrew](https://brew.sh). The Homebrew installation automatically bypasses the macOS security warning described above.
-
-```bash
-brew install --cask TheBoredTeam/boring-notch/boring-notch
-```
-
-## Usage
-
-- Launch the app, and voilà—your notch is now the coolest part of your screen.
-- Hover over the notch to see it expand and reveal all its secrets.
-- Use the controls to manage your music like a rockstar.
-- Click the star in your menu bar to customize your notch to your heart's content.
-
-## 📋 Roadmap
-- [x] Playback live activity 🎧
-- [x] Calendar integration 📆
-- [x] Reminders integration ☑️
-- [x] Mirror 📷
-- [x] Charging indicator and current percentage 🔋
-- [x] Customizable gesture control 👆🏻
-- [x] Shelf functionality with AirDrop 📚
-- [x] Notch sizing customization, finetuning on different display sizes 🖥️
-- [x] System HUD replacements (volume, brightness, backlight) 🎚️💡⌨️
-- [ ] Bluetooth Live Activity (connect/disconnect for bluetooth devices) 
-- [ ] Weather integration ⛅️
-- [ ] Customizable Layout options 🛠️
-- [ ] Lock Screen Widgets 🔒
-- [ ] Extension system 🧩
-- [ ] Notifications (under consideration) 🔔
-<!-- - [ ] Clipboard history manager 📌 `Extension` -->
-<!-- - [ ] Download indicator of different browsers (Safari, Chromium browsers, Firefox) 🌍 `Extension`-->
-<!-- - [ ] Customizable function buttons 🎛️ -->
-<!-- - [ ] App switcher 🪄 -->
-
-<!-- ## 🧩 Extensions
-> [!NOTE]
-> We’re hard at work on some awesome extensions! Stay tuned, and we’ll keep you updated as soon as they’re released. -->
-
-## Building from Source
-
-### Prerequisites
-
-- **macOS 15.6 or later**
-- **Xcode 26 or later**
-
-### Installation
-
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/TheBoredTeam/boring.notch.git
-   cd boring.notch
-   ```
-
-2. **Open the Project in Xcode**:
-   ```bash
-   open boringNotch.xcodeproj
-   ```
-
-3. **Build and Run**:
-    - Click the "Run" button or press `Cmd + R`. Watch the magic unfold!
-
-## 🤝 Contributing
-
-We’re all about good vibes and awesome contributions! Read [CONTRIBUTING.md](CONTRIBUTING.md) to learn how you can join the fun!
-
-## Join our Discord Server
-
-<a href="https://discord.gg/GvYcYpAKTu" target="_blank"><img src="https://iili.io/28m3GHv.png" alt="Join The Boring Server!" style="height: 60px !important;width: 217px !important;" ></a>
-
-## Star History
-<!-- BROKEN: GitHub now restricts the stargazer API for privacy reasons
-<a href="https://www.star-history.com/#TheBoredTeam/boring.notch&Timeline">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=TheBoredTeam/boring.notch&type=Timeline&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=TheBoredTeam/boring.notch&type=Timeline" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=TheBoredTeam/boring.notch&type=Timeline" />
- </picture>
-</a>
--->
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TheBoredTeam/org-star-chart-updater/main/projects/boring.notch/chart-dark.svg">
-   <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/TheBoredTeam/org-star-chart-updater/main/projects/boring.notch/chart-light.svg">
-   <img src="https://raw.githubusercontent.com/TheBoredTeam/org-star-chart-updater/main/projects/boring.notch/chart-light.svg" alt="TheBoredTeam/boring.notch GitHub star history">
- </picture>
-
-## Support us on Ko-fi!
-<!-- <a href="https://www.buymeacoffee.com/jfxh67wvfxq" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a> -->
-<a href="https://www.ko-fi.com/alexander5015" target="_blank"><img src="https://github.com/user-attachments/assets//a76175ef-7e93-475a-8b67-4922ba5964c2" alt="Support us on Ko-fi" style="height: 70px !important;width: 346px !important;" ></a>
-
-## 🎉 Acknowledgments
-
-We would like to express our gratitude to the authors and maintainers of the open-source projects that made this possible. 
-
-## Notable Projects
-- **[MediaRemoteAdapter](https://github.com/ungive/mediaremote-adapter)** –  An open-source project that allowed us to use the Now Playing source in macOS 15.4+
-- **[NotchDrop](https://github.com/Lakr233/NotchDrop)** – An open-source project that has been instrumental in developing the first version of the "Shelf" feature in Boring Notch.
-
-For a full list of licenses and attributions, please see the [Third-Party Licenses](./THIRD_PARTY_LICENSES.md) file.
-
-### Icon credits: [@maxtron95](https://github.com/maxtron95)
-### Website credits: [@himanshhhhuv](https://github.com/himanshhhhuv)
-
-- **SwiftUI**: For making us look like coding wizards.
-- **You**: For being awesome and checking out **boring.notch**!
-
+本项目基于 [Boring Notch](https://github.com/TheBoredTeam/boring.notch) 开发，遵循 [GPL-3.0](LICENSE)，保留原作者版权与声明。[上游原始说明](docs/UPSTREAM-README.md) 单独留存；本仓库的介绍、截图与体验包对应「薪动日常」。
