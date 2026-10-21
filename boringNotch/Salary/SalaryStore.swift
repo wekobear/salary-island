@@ -265,11 +265,14 @@ final class SalaryStore: ObservableObject {
 
     func saveProfile(_ profile: SalaryProfile) throws {
         let first = !configured
-        let (proposed, versions, _) = try proposedPlan(profile)
+        let (proposed, versions, revisedSnapshot) = try proposedPlan(profile)
         var updated = data; updated.versions = versions
         if proposed.effectiveAt! <= clock() {
-            let context = try SalaryEngine.context(at: clock(), versions: versions)
-            updated.days.removeValue(forKey: context.id)
+            var ledger = updated.days[revisedSnapshot.id] ?? SalaryDayLedger(snapshot: revisedSnapshot)
+            ledger.snapshot = revisedSnapshot
+            ledger.skipPending()
+            _ = ledger.advance(now: clock(), previous: nil, milestones: updated.milestones, blocked: true, busy: false, silent: true)
+            updated.days[revisedSnapshot.id] = ledger
         }
         try commit(updated)
         isDemo = false; demoLedger = nil; toast = nil; previousTick = nil

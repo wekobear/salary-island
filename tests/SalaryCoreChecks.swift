@@ -35,10 +35,10 @@ struct SalaryCoreChecks {
         check(paidSnapshot.elapsedSeconds(at: time(12,30)) == 12600, "paid lunch keeps earning")
         let pre = try SalaryEngine.effectiveDay(for: p, versions: versions, now: time(8))
         let post = try SalaryEngine.effectiveDay(for: p, versions: versions, now: time(10))
-        check(pre == "2026-01-05" && post == "2026-01-06", "A07 before/after shift changes")
+        check(pre == "2026-01-05" && post == "2026-01-05", "A07 same-zone changes apply today before and after shift")
         var early = p; early.schedule.startMinute = 420
         let effectiveEarly = try SalaryEngine.effectiveDay(for: early, versions: versions, now: time(8))
-        check(effectiveEarly == "2026-01-06", "earlier new start cannot rewrite started day")
+        check(effectiveEarly == "2026-01-05", "earlier new start recalculates today immediately")
         var added = p; added.schedule.exceptions["2026-01-17"] = true
         let amended = versions + [.init(effectiveDay: "2026-01-16", profile: added)]
         let newSnapshot = try SalaryEngine.snapshot(at: time("2026-01-16",10), versions: amended)
@@ -60,7 +60,7 @@ struct SalaryCoreChecks {
         var restTuesday = p; restTuesday.schedule.exceptions["2026-01-06"] = false
         let restVersion = try SalaryEngine.proposedVersion(for: restTuesday, versions: versions, now: time(10))
         let tuesday = try SalaryEngine.snapshot(at: time("2026-01-06", 10), versions: versions + [restVersion])
-        check(restVersion.effectiveDay == "2026-01-06" && !tuesday.isWorkday, "new rest day activates rather than being skipped")
+        check(restVersion.effectiveDay == "2026-01-05" && !tuesday.isWorkday, "new rest exception applies immediately to the plan")
         var tokyo = p; tokyo.schedule.timeZoneID = "Asia/Tokyo"
         let tokyoVersion = try SalaryEngine.proposedVersion(for: tokyo, versions: versions, now: time(10))
         let tokyoSnapshot = try SalaryEngine.snapshot(at: time("2026-01-06", 9), versions: versions + [tokyoVersion])

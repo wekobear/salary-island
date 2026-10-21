@@ -58,3 +58,7 @@ build/
 /work/
 /.swiftpm/
 boringNotch.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/configuration/
+
+# Private runtime configuration and backups
+salary-v1.json
+salary-before-*.json

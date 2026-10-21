@@ -190,14 +190,25 @@ struct SalarySettingsView: View {
         .onChange(of: profile) { _, _ in preview = nil }
     }
 
+    private var changesTimeZone: Bool {
+        store.configured && profile.schedule.timeZoneID != store.currentProfile.schedule.timeZoneID
+    }
+
     private var profileActions: some View {
         VStack(alignment: .leading, spacing: 8) {
                 if let preview {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("\(preview.0) 起生效").font(.headline).foregroundStyle(SalaryPalette.mint)
-                        Text("该日预计 \(SalaryEngine.formatYuan(cents: preview.1.dayCents)) · 每小时 \(SalaryEngine.formatYuan(cents: preview.1.hourlyYuan * 100))") .monospacedDigit()
-                        Text("当天已开工则次日生效；切换时区按原计划下一工作日上班时刻生效，不补算新时区已过去的时段。月中变更后合计可能不同于月薪。") .font(.caption).foregroundStyle(.secondary)
-                        Button("按此方案保存") { perform { try store.saveProfile(preparedProfile()); message = "已保存。把鼠标移到屏幕顶部，看看工资开始营业。"; self.preview = nil } }
+                        Text(changesTimeZone ? "\(preview.0) 起生效" : "保存后立即生效 · 重算今日").font(.headline).foregroundStyle(SalaryPalette.mint)
+                        Text("\(changesTimeZone ? "该日预计" : "今日全天预计") \(SalaryEngine.formatYuan(cents: preview.1.dayCents)) · 每小时 \(SalaryEngine.formatYuan(cents: preview.1.hourlyYuan * 100))") .monospacedDigit()
+                        Text(changesTimeZone ? "切换时区按原计划下一工作日上班时刻生效，不补算新时区已过去的时段。" : "保存后按新月薪与作息重算今天已过去的计薪时间，立即更新收入和倒计时；历史日期不变，已达成奖励不重复提示。月中变更后合计可能不同于月薪。") .font(.caption).foregroundStyle(.secondary)
+                        Button(changesTimeZone ? "按此方案保存" : "保存并立即更新") {
+                            perform {
+                                let deferred = changesTimeZone
+                                try store.saveProfile(preparedProfile())
+                                message = deferred ? "已保存，将在预览时刻切换工作时区。" : "已保存，今日收入与工资速率已更新。"
+                                self.preview = nil
+                            }
+                        }
                             .buttonStyle(SalaryPrimaryButtonStyle())
                     }
                 } else {

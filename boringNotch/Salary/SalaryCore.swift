@@ -229,12 +229,17 @@ enum SalaryEngine {
             }
             guard found else { throw SalaryCalculationError("旧计划未来一年没有工作日，无法确定时区切换时刻。") }
         } else {
-            let starts = [old.schedule, newProfile.schedule].compactMap { s -> Date? in
-                works(key, schedule: s) ? moment(key, minute: s.startMinute, schedule: s) : nil
-            }
-            if let firstStart = starts.min(), now >= firstStart {
-                // Rules must also take effect on a newly configured rest day.
-                instant = c.date(byAdding: .day, value: 1, to: instant)!
+            // Recalculate the whole current day. A timezone transition that has
+            // already happened today remains a hard boundary for earned time.
+            let ordered = versions.sorted { activation(of: $0, in: versions) < activation(of: $1, in: versions) }
+            for index in ordered.indices.dropFirst() {
+                let version = ordered[index]
+                let boundary = activation(of: version, in: versions)
+                if boundary <= now,
+                   version.profile.schedule.timeZoneID == old.schedule.timeZoneID,
+                   ordered[index - 1].profile.schedule.timeZoneID != old.schedule.timeZoneID {
+                    instant = max(instant, boundary)
+                }
             }
         }
         return SalaryVersion(effectiveDay: dayKey(instant, timeZoneID: newProfile.schedule.timeZoneID), profile: newProfile, effectiveAt: instant)
