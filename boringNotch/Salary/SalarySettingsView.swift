@@ -82,7 +82,7 @@ struct SalarySettingsView: View {
         .alert("清除薪酬数据？", isPresented: $confirmClear) {
             Button("取消", role: .cancel) {}
             Button("清除", role: .destructive) { perform { try store.clearSalaryData(); load(); message = "薪酬数据已清除。" } }
-        } message: { Text("删除本应用的工资配置、日记录、成就与文案历史。音乐与文件架数据不受影响。") }
+        } message: { Text("删除本应用的工资配置、日记录、成就与文案历史。音乐设置不受影响。") }
     }
 
     private var sidebar: some View {

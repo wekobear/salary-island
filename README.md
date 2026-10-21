@@ -6,11 +6,13 @@
 
 一款陪你上班的 macOS 灵动岛小工具。把月薪换算成每秒、每分钟、每小时的收入，看着时间变成奶茶、好饭和一件喜欢的衣服。
 
-[下载 v0.1.3 体验版](https://github.com/wekobear/salary-island/releases/tag/v0.1.3) · [安装图解](docs/INSTALL.md) · [使用与构建说明](README-SalaryIsland.md)
+[下载 v0.1.4 体验版](https://github.com/wekobear/salary-island/releases/tag/v0.1.4) · [安装图解](docs/INSTALL.md) · [使用与构建说明](README-SalaryIsland.md)
 
 ## 21 秒，看时间变成生活的一点甜
 
 ![薪动日常操作演示：灵动岛显示下班倒计时与实时估算收入，展开查看收入速率，并设置作息和每日快乐目标](docs/images/product-demo.gif)
+
+*演示录制于较早版本；v0.1.4 已移除顶部文件入口与电量显示。*
 
 **抬头看下班，顺便看今天赚到了多少快乐。** 灵动岛常驻显示倒计时和今日估算收入，展开即可查看秒薪、分钟工资与时薪。把奶茶、好饭、一件衣服设成每日小目标，达成时收下一句鼓励。
 
@@ -33,7 +35,7 @@
 
 ## 开始使用
 
-1. 在 [Releases](https://github.com/wekobear/salary-island/releases/tag/v0.1.3) 下载 `SalaryDaily-v0.1.3-macOS.zip`，解压后将「薪动日常.app」拖入「应用程序」，双击打开。
+1. 在 [Releases](https://github.com/wekobear/salary-island/releases/tag/v0.1.4) 下载 `SalaryDaily-v0.1.4-macOS.zip`，解压后将「薪动日常.app」拖入「应用程序」，双击打开。
 2. 点击「播放奶茶演示」先看效果，或填写月薪与作息，预览后保存。
 3. 把鼠标移到屏幕顶部灵动岛，查看倒计时、今日收入和下一份小快乐。
 4. 点击顶部齿轮打开设置，左下角可「退出薪动日常」；关闭设置窗口只会收起设置。
@@ -67,9 +69,9 @@
 
 ## 版本与开发
 
-v0.1.3 换上「心动钱包」图标：薄荷绿钱包、金色爱心扣和跳动线条。应用图标、设置页、欢迎页与关于页统一展示，保留退出入口、目标进度及此前计薪修复。
+v0.1.4 移除暂不可用的文件架、隔空投送和拖放入口，并去掉电量显示与相关设置。保留下班倒计时、收入估算、快乐目标、音乐和心动钱包图标。
 
-[更新说明](docs/RELEASE-v0.1.3.md) · [测试与已知限制](docs/TEST-SECURITY-v0.1.md) · [产品文档](docs/PRD-v0.3.md)
+[更新说明](docs/RELEASE-v0.1.4.md) · [测试与已知限制](docs/TEST-SECURITY-v0.1.md) · [产品文档](docs/PRD-v0.3.md)
 
 ## 许可证
 
