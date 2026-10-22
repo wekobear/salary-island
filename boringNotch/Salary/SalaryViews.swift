@@ -207,7 +207,7 @@ struct SalaryDashboardView: View {
 
     private func targetDetail(_ item: SalaryMilestone) -> String {
         guard let s = store.snapshot, s.dayCents > 0 else { return "\(SalaryEngine.formatYuan(cents: Double(item.cents))) · 等待营业" }
-        if Double(item.cents) > s.dayCents { return "约需\(Int(ceil(Double(item.cents) / s.dayCents)))个相同班次" }
+        if Double(item.cents) > s.dayCents { return "约合 \(Int(ceil(Double(item.cents) / s.dayCents))) 天工资" }
         let rate = s.hourlyYuan * 100 / 60
         return "再工作约\(max(1, Int(ceil((Double(item.cents) - store.earnedCents) / max(rate, 0.000001)))))分钟"
     }

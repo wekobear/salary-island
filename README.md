@@ -6,7 +6,7 @@
 
 一款陪你上班的 macOS 灵动岛小工具。把月薪换算成每秒、每分钟、每小时的收入，看着时间变成奶茶、好饭和一件喜欢的衣服。
 
-[下载 v0.1.5 体验版](https://github.com/wekobear/salary-island/releases/tag/v0.1.5) · [安装图解](docs/INSTALL.md) · [使用与构建说明](README-SalaryIsland.md)
+[下载 v0.1.6 体验版](https://github.com/wekobear/salary-island/releases/tag/v0.1.6) · [安装图解](docs/INSTALL.md) · [使用与构建说明](README-SalaryIsland.md)
 
 ## 界面预览
 
@@ -26,7 +26,7 @@
 
 ## 开始使用
 
-1. 在 [Releases](https://github.com/wekobear/salary-island/releases/tag/v0.1.5) 下载 `SalaryDaily-v0.1.5-macOS.zip`，解压后将「薪动日常.app」拖入「应用程序」，双击打开。
+1. 在 [Releases](https://github.com/wekobear/salary-island/releases/tag/v0.1.6) 下载 `SalaryDaily-v0.1.6-macOS.zip`，解压后将「薪动日常.app」拖入「应用程序」，双击打开。
 2. 点击「播放奶茶演示」先看效果，或填写月薪与作息，预览后保存。
 3. 把鼠标移到屏幕顶部灵动岛，查看倒计时、今日收入和下一份小快乐。
 4. 点击顶部齿轮打开设置，左下角可「退出薪动日常」；关闭设置窗口只会收起设置。
@@ -60,9 +60,9 @@
 
 ## 版本与开发
 
-v0.1.5 支持保存月薪与作息后立即更新今日收入、日薪、时薪和倒计时。历史记录保留，奖励不重复提示；跨时区变更按预览时刻切换。
+v0.1.6 将目标提示改为「约合 X 天工资」，更直观地说明目标价格相当于几天工资。继续支持保存月薪与作息后立即更新今日收入、日薪、时薪和倒计时。历史记录保留，奖励不重复提示；跨时区变更按预览时刻切换。
 
-[更新说明](docs/RELEASE-v0.1.5.md) · [测试与已知限制](docs/TEST-SECURITY-v0.1.md) · [产品文档](docs/PRD-v0.3.md)
+[更新说明](docs/RELEASE-v0.1.6.md) · [测试与已知限制](docs/TEST-SECURITY-v0.1.md) · [产品文档](docs/PRD-v0.3.md)
 
 ## 许可证
 
