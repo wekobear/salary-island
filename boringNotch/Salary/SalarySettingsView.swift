@@ -7,8 +7,9 @@ private struct MilestoneDraft: Identifiable {
     var amount: String
     var symbol: String
     var enabled: Bool
+    var mode: SalaryGoalMode?
     init(_ value: SalaryMilestone) {
-        id = value.id; name = value.name; amount = String(format: "%.2f", Double(value.cents) / 100); symbol = value.symbol; enabled = value.enabled
+        id = value.id; name = value.name; amount = String(format: "%.2f", Double(value.cents) / 100); symbol = value.symbol; enabled = value.enabled; mode = value.mode
     }
 }
 
@@ -234,20 +235,28 @@ struct SalarySettingsView: View {
                             TextField("", text: $item.amount, prompt: Text("金额")).labelsHidden().textFieldStyle(.roundedBorder).frame(width: 85).accessibilityLabel("目标金额，单位元")
                             Button { targets.removeAll { $0.id == item.id } } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless).help("删除这个目标")
                         }
-                        if let event = store.realTodayEvents.first(where: { $0.id == "milestone:" + item.id }) {
+                        Picker("进度方式", selection: $item.mode) {
+                            Text("自动选择：大件跨天累计").tag(Optional<SalaryGoalMode>.none)
+                            ForEach(SalaryGoalMode.allCases, id: \.self) { Text($0.label).tag(Optional($0)) }
+                        }
+                        if item.mode == .cumulative {
+                            Text("跨天保留；新目标从今天起按估算工资累计。修改名称或金额不清空进度。")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        if item.mode != .cumulative, let event = store.realTodayEvents.first(where: { $0.id == "milestone:" + item.id }) {
                             Label("今日已达成 · \(event.name)（\(SalaryEngine.formatYuan(cents: Double(event.cents)))）", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(SalaryPalette.mint)
                         }
                     }.padding(.vertical, 4)
                 }
                 Button { targets.append(MilestoneDraft(.init(name: "我的小快乐", cents: 10000, symbol: "gift.fill"))) } label: { Label("再加一份快乐", systemImage: "plus") }.disabled(targets.count >= 5)
-            } header: { Text("每日小目标 · 最多5项") }
+            } header: { Text("我的目标 · 最多5项") }
             Section {
-                Text("每个目标独立比较，不扣除今日收入。不表示你已经买过，也不能把所有物品当成同时可花的余额。") .font(.callout).foregroundStyle(.secondary)
+                Text("每日目标每天重新计算；累计目标跨天保留。每个目标独立比较，不扣除收入，也不表示实际存款。") .font(.callout).foregroundStyle(.secondary)
                 Text("价格是你自己的选择。关闭全部目标后，就安静地看时间和工资增长。") .font(.callout).foregroundStyle(.secondary)
                 Button("保存快乐清单") {
                     perform {
-                        let items = try targets.map { item in SalaryMilestone(id: item.id, name: item.name, cents: try SalaryEngine.moneyCents(item.amount), symbol: item.symbol, enabled: item.enabled) }
-                        try store.saveMilestones(items); message = "快乐清单已保存。已跨过的门槛不会补弹。"
+                        let items = try targets.map { item in SalaryMilestone(id: item.id, name: item.name, cents: try SalaryEngine.moneyCents(item.amount), symbol: item.symbol, enabled: item.enabled, mode: item.mode) }
+                        try store.saveMilestones(items); targets = store.data.milestones.map(MilestoneDraft.init); message = "快乐清单已保存。已跨过的门槛不会补弹。"
                     }
                 }.buttonStyle(SalaryPrimaryButtonStyle())
                 Button("预览一条奶茶反馈") {

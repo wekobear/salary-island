@@ -5,12 +5,20 @@ enum SalaryTone: String, Codable, CaseIterable {
     var label: String { switch self { case .gentle: return "温柔"; case .playful: return "抽象"; case .bold: return "嘴替" } }
 }
 
+enum SalaryGoalMode: String, Codable, CaseIterable {
+    case daily, cumulative
+    var label: String { self == .daily ? "每天重新计算" : "跨天累计" }
+}
+
 struct SalaryMilestone: Codable, Identifiable, Equatable {
     var id = UUID().uuidString
     var name: String
     var cents: Int64
     var symbol: String
     var enabled = true
+    var mode: SalaryGoalMode? = nil
+    var startedAt: Date? = nil
+    var achievedAt: Date? = nil
     static var defaults: [SalaryMilestone] { [
         .init(id: "tea", name: "一杯奶茶", cents: 2000, symbol: "cup.and.saucer.fill"),
         .init(id: "meal", name: "一顿好饭", cents: 5000, symbol: "fork.knife"),
@@ -19,7 +27,7 @@ struct SalaryMilestone: Codable, Identifiable, Equatable {
 }
 
 struct SalaryEvent: Codable, Identifiable, Equatable {
-    enum Kind: String, Codable { case milestone, halfway, reminder, finish }
+    enum Kind: String, Codable { case milestone, cumulative, halfway, reminder, finish }
     var id: String
     var kind: Kind
     var name: String
@@ -28,7 +36,7 @@ struct SalaryEvent: Codable, Identifiable, Equatable {
     var occurredAt: Date
     var displayed = false
     var skipped = false
-    var priority: Int { switch kind { case .finish: return 4; case .reminder: return 3; case .milestone: return 2; case .halfway: return 1 } }
+    var priority: Int { switch kind { case .finish: return 4; case .reminder: return 3; case .milestone, .cumulative: return 2; case .halfway: return 1 } }
     func expires(at end: Date) -> Date {
         switch kind { case .finish: return end.addingTimeInterval(30); case .reminder: return end; default: return min(end, occurredAt.addingTimeInterval(1800)) }
     }
@@ -43,11 +51,11 @@ struct SalaryDayLedger: Codable, Equatable {
     var rewardCount = 0
 
     /// Facts and presentation are separate. Blocked or stale facts are retained but never replayed.
-    mutating func advance(now: Date, previous: Date?, milestones: [SalaryMilestone], blocked: Bool, busy: Bool, silent: Bool = false) -> SalaryEvent? {
+    mutating func advance(now: Date, previous: Date?, milestones: [SalaryMilestone], blocked: Bool, busy: Bool, silent: Bool = false, goalEvents: [SalaryEvent] = []) -> SalaryEvent? {
         guard let end = snapshot.shiftEnd, snapshot.isWorkday else { return nil }
         if let previous, now < previous { skipPending() }
-        var candidates: [SalaryEvent] = []
-        for m in milestones where m.enabled && snapshot.reached(cents: m.cents, at: now) {
+        var candidates = goalEvents.filter { candidate in !events.contains { $0.id == candidate.id } }
+        for m in milestones where m.enabled && m.mode != .cumulative && snapshot.reached(cents: m.cents, at: now) {
             let id = "milestone:" + m.id
             guard !events.contains(where: { $0.id == id }) else { continue }
             if let crossing = snapshot.crossingDate(cents: m.cents) {
@@ -121,6 +129,10 @@ enum SalaryCopy {
             if tone == .gentle { return ["今天到这里，生活时间开始。", "今天也认真生活了，接下来留给自己。"] }
             if tone == .bold { return ["今日份窝囊费估算完毕，建议本人离场。", "工位使用时间结束。请归还本人。"] }
             return ["下班！今天出售的时间，已全部交付。", "今日营业结束，快乐正式开张。", "系统提示：你的自由已到账。"]
+        case .cumulative:
+            return tone == .gentle
+                ? ["一点点积累，终于够买\(event.name)了。", "\(event.name)目标达成，每一天的努力都算数。"]
+                : ["\(event.name)的钱攒够了，打工进度没有白跑。", "愿望清单解锁：\(event.name)。每一天都算数。"]
         case .milestone:
             if tone == .gentle { return ["\(event.name)，已经赚到了。", "又攒下一点生活的小快乐：\(event.name)。", "今天的小奖励：\(event.name)。"] }
             let isOriginalPreset = SalaryMilestone.defaults.contains { $0.name == event.name && $0.symbol == event.symbol }

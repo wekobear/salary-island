@@ -264,3 +264,44 @@ enum SalaryEngine {
         return f.string(from: NSNumber(value: cents / 100)) ?? "¥0.00"
     }
 }
+
+enum SalaryGoalMath {
+    /// 与门槛校验一致的收入上限：10 亿元 = 100_000_000_000 分。
+    static let centsCap: Int64 = 100_000_000_000
+
+    /// 计算 [start, end] 内按快照计薪区间累计的收入（分）。
+    /// 计薪秒数完全复用 SalarySnapshot.elapsedSeconds(at:)（逐区间向下取整后求和，
+    /// 区间外时间被裁剪），seconds = max(0, elapsed(end) - elapsed(start))。
+    /// 金额只用整数运算：monthly/denominator*seconds + (monthly%denominator)*seconds/denominator，
+    /// 乘加全部使用带溢出检查的 Int64 运算；非法输入返回 0，结果封顶 centsCap。
+    static func earnedCents(snapshot: SalarySnapshot, from start: Date, through end: Date) -> Int64 {
+        guard (1...32 * 86400).contains(snapshot.denominatorSeconds),
+              (0...centsCap).contains(snapshot.monthlyCents) else { return 0 }
+        let seconds = max(0, snapshot.elapsedSeconds(at: end) - snapshot.elapsedSeconds(at: start))
+        guard seconds > 0 else { return 0 }
+        let monthly = snapshot.monthlyCents
+        let denominator = snapshot.denominatorSeconds
+        let base = (monthly / denominator).multipliedReportingOverflow(by: seconds)
+        guard !base.overflow else { return centsCap }
+        let extra = (monthly % denominator).multipliedReportingOverflow(by: seconds)
+        guard !extra.overflow else { return centsCap }
+        let sum = base.partialValue.addingReportingOverflow(extra.partialValue / denominator)
+        guard !sum.overflow else { return centsCap }
+        return min(sum.partialValue, centsCap)
+    }
+
+    /// 汇总多份快照在 [start, end] 内的收入（分）。按 snapshot.id 去重（保留首次出现），
+    /// 按输入顺序累加并逐项封顶，溢出按上限处理，结果确定可复现。
+    static func totalCents(snapshots: [SalarySnapshot], from start: Date, through end: Date) -> Int64 {
+        var seen = Set<String>()
+        var total: Int64 = 0
+        for snapshot in snapshots {
+            guard seen.insert(snapshot.id).inserted else { continue }
+            let earned = earnedCents(snapshot: snapshot, from: start, through: end)
+            let sum = total.addingReportingOverflow(earned)
+            if sum.overflow { return centsCap }
+            total = min(sum.partialValue, centsCap)
+        }
+        return total
+    }
+}

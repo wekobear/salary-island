@@ -55,6 +55,7 @@ final class SalaryStore: ObservableObject {
     private var demoStarted: Date?
     private var demoBase: Date?
     private var demoLedger: SalaryDayLedger?
+    private var preparedGoalDay: String?
     private var loadFailed = false
     private let clock: () -> Date
     let storageURL: URL
@@ -164,6 +165,96 @@ final class SalaryStore: ObservableObject {
         self.timer = timer
     }
 
+    // Goal totals are reconstructed from immutable day snapshots, never timer increments.
+    func goalEarnedCents(_ item: SalaryMilestone) -> Int64 {
+        guard !isDemo, item.mode == .cumulative, item.startedAt != nil else {
+            return Int64(max(0, earnedCents.rounded(.down)))
+        }
+        return cumulativeCents(item, in: data, at: now)
+    }
+
+    func goalReached(_ item: SalaryMilestone) -> Bool {
+        if !isDemo && item.mode == .cumulative { return item.achievedAt != nil || goalEarnedCents(item) >= item.cents }
+        return todayEvents.contains { $0.id == "milestone:" + item.id }
+    }
+
+    private func cumulativeCents(_ item: SalaryMilestone, in value: SalaryData, at date: Date) -> Int64 {
+        guard let start = item.startedAt else { return 0 }
+        let ordered = value.versions.sorted { SalaryEngine.activation(of: $0, in: value.versions) < SalaryEngine.activation(of: $1, in: value.versions) }
+        let snapshots = value.days.values.map { ledger -> SalarySnapshot in
+            var s = ledger.snapshot
+            // Do not count the old zone beyond a timezone transition.
+            if let boundary = ordered.first(where: { v in
+                v.profile.schedule.timeZoneID != s.timeZoneID && SalaryEngine.activation(of: v, in: value.versions) > SalaryEngine.date(for: s.dayKey, timeZoneID: s.timeZoneID)
+            }).map({ SalaryEngine.activation(of: $0, in: value.versions) }) {
+                s.intervals = s.intervals.compactMap { interval in
+                    let end = min(interval.end, boundary)
+                    return end > interval.start ? SalaryInterval(start: interval.start, end: end) : nil
+                }
+            }
+            return s
+        }
+        return SalaryGoalMath.totalCents(snapshots: snapshots, from: start, through: date)
+    }
+
+    private func prepareGoals(at date: Date) throws {
+        let context = try SalaryEngine.context(at: date, versions: data.versions)
+        guard preparedGoalDay != context.id else { return }
+        var updated = data
+        let current = try data.days[context.id]?.snapshot ?? SalaryEngine.snapshot(at: date, versions: data.versions)
+        let capacity = current.hourlyYuan * 100 * Double(context.version.profile.schedule.paidSeconds) / 3600
+        let firstDay = data.days.values.map { SalaryEngine.date(for: $0.snapshot.dayKey, timeZoneID: $0.snapshot.timeZoneID) }.min()
+            ?? SalaryEngine.date(for: context.day, timeZoneID: context.version.profile.schedule.timeZoneID)
+        var changed = false
+        for index in updated.milestones.indices where updated.milestones[index].mode == nil {
+            updated.milestones[index].mode = Double(updated.milestones[index].cents) > capacity ? .cumulative : .daily
+            if updated.milestones[index].mode == .cumulative { updated.milestones[index].startedAt = firstDay }
+            changed = true
+        }
+        if let start = updated.milestones.filter({ $0.mode == .cumulative }).compactMap(\.startedAt).min(), start <= date {
+            // Fill days missed while the app was closed, using the plan in force then.
+            // Existing snapshots (including manual corrections) always take precedence.
+            let ordered = updated.versions.sorted { SalaryEngine.activation(of: $0, in: updated.versions) < SalaryEngine.activation(of: $1, in: updated.versions) }
+            for (index, version) in ordered.enumerated() {
+                let activation = SalaryEngine.activation(of: version, in: updated.versions)
+                let end = index + 1 < ordered.count ? min(date, SalaryEngine.activation(of: ordered[index + 1], in: updated.versions)) : date
+                let begin = max(start, activation)
+                guard begin <= end else { continue }
+                let calendar = SalaryEngine.calendar(version.profile.schedule.timeZoneID)
+                var day = calendar.startOfDay(for: begin)
+                while day <= end {
+                    let probe = max(day, begin)
+                    if probe <= date && (probe < end || index == ordered.count - 1),
+                       let resolved = try? SalaryEngine.context(at: probe, versions: updated.versions),
+                       resolved.version.id == version.id, updated.days[resolved.id] == nil {
+                        let s = try SalaryEngine.snapshot(at: probe, versions: updated.versions)
+                        updated.days[s.id] = SalaryDayLedger(snapshot: s)
+                        changed = true
+                    }
+                    guard let next = calendar.date(byAdding: .day, value: 1, to: day), next > day else { break }
+                    day = next
+                }
+            }
+        }
+        if changed { try commit(updated) }
+        preparedGoalDay = context.id
+    }
+
+    private func cumulativeEvents(in value: inout SalaryData, at date: Date, previous: Date?, silent: Bool) -> [SalaryEvent] {
+        var result: [SalaryEvent] = []
+        for index in value.milestones.indices {
+            let item = value.milestones[index]
+            guard item.enabled, item.mode == .cumulative, item.achievedAt == nil,
+                  cumulativeCents(item, in: value, at: date) >= item.cents else { continue }
+            value.milestones[index].achievedAt = date
+            let live = previous.map { date >= $0 && date.timeIntervalSince($0) <= 5 } ?? false
+            result.append(.init(id: "goal:" + item.id + ":" + String(item.cents), kind: .cumulative,
+                                name: item.name, cents: item.cents, symbol: item.symbol,
+                                occurredAt: date, skipped: silent || !live))
+        }
+        return result
+    }
+
     func tick(silent: Bool = false) {
         guard !loadFailed else { snapshot = nil; return }
         let realNow = clock()
@@ -173,6 +264,7 @@ final class SalaryStore: ObservableObject {
         if let toastAt, realNow.timeIntervalSince(toastAt) >= 4, interactionSources.subtracting(["settings"]).isEmpty { toast = nil }
         guard configured || isDemo else { snapshot = nil; return }
         do {
+            if configured { try prepareGoals(at: realNow) }
             var ledger: SalaryDayLedger
             if isDemo {
                 if configured {
@@ -196,10 +288,13 @@ final class SalaryStore: ObservableObject {
             let c = BoringViewCoordinator.shared
             let blocked = privacy || quiet || locked || sleeping || fullscreen || visibleSources.isEmpty
             let busy = !interactionSources.isEmpty || c.sneakPeek.show || c.expandingView.show || SharingStateManager.shared.preventNotchClose || toast != nil
-            let event = ledger.advance(now: date, previous: previousTick, milestones: milestones, blocked: blocked, busy: busy, silent: silent)
+            var updated = data
+            updated.days[ledger.snapshot.id] = ledger
+            let goals = isDemo ? [] : cumulativeEvents(in: &updated, at: date, previous: previousTick, silent: silent)
+            let event = ledger.advance(now: date, previous: previousTick, milestones: milestones, blocked: blocked, busy: busy, silent: silent, goalEvents: goals)
             if isDemo { demoLedger = ledger }
-            else if old != ledger || data.days[ledger.snapshot.id] == nil {
-                var updated = data; updated.days[ledger.snapshot.id] = ledger
+            else if old != ledger || data.days[ledger.snapshot.id] == nil || updated.milestones != data.milestones {
+                updated.days[ledger.snapshot.id] = ledger
                 try commit(updated)
             }
             if let event { present(event, demo: isDemo) }
@@ -264,6 +359,7 @@ final class SalaryStore: ObservableObject {
     }
 
     func saveProfile(_ profile: SalaryProfile) throws {
+        if configured { try prepareGoals(at: clock()) }
         let first = !configured
         let (proposed, versions, revisedSnapshot) = try proposedPlan(profile)
         var updated = data; updated.versions = versions
@@ -275,6 +371,7 @@ final class SalaryStore: ObservableObject {
             updated.days[revisedSnapshot.id] = ledger
         }
         try commit(updated)
+        preparedGoalDay = nil
         isDemo = false; demoLedger = nil; toast = nil; previousTick = nil
         tick(silent: true)
         if first { welcomeMessage = "你的工资开始按秒营业了。今天的快乐，从这里开始。" }
@@ -297,14 +394,27 @@ final class SalaryStore: ObservableObject {
     }
 
     func saveMilestones(_ items: [SalaryMilestone]) throws {
-        guard items.count <= 5 else { throw SalaryStoreError("每日最多设置5个目标。") }
+        guard items.count <= 5 else { throw SalaryStoreError("最多设置5个目标。") }
         for item in items {
             guard !item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, item.name.count <= 16,
                   item.cents > 0, item.cents <= 100_000_000_000 else { throw SalaryStoreError("目标名称需为1–16个字，金额需大于0且不超过10亿元。") }
         }
-        var updated = data; updated.milestones = items.sorted { $0.cents < $1.cents }
+        guard Set(items.map(\.id)).count == items.count else { throw SalaryStoreError("目标标识重复，请重新添加。") }
+        let context = try SalaryEngine.context(at: clock(), versions: data.versions)
+        let s = try SalaryEngine.snapshot(at: clock(), versions: data.versions)
+        let capacity = s.hourlyYuan * 100 * Double(context.version.profile.schedule.paidSeconds) / 3600
+        let start = SalaryEngine.date(for: context.day, timeZoneID: context.version.profile.schedule.timeZoneID)
+        var updated = data
+        updated.milestones = items.map { item in
+            var saved = item
+            let old = data.milestones.first { $0.id == item.id }
+            saved.mode = item.mode ?? (Double(item.cents) > capacity ? .cumulative : .daily)
+            saved.startedAt = saved.mode == .cumulative ? (old?.mode == .cumulative ? old?.startedAt ?? start : start) : nil
+            saved.achievedAt = saved.mode == .cumulative && old?.mode == .cumulative && old?.cents == item.cents ? old?.achievedAt : nil
+            return saved
+        }.sorted { $0.cents < $1.cents }
         suppressPending(in: &updated)
-        try commit(updated); toast = nil; tick(silent: true)
+        try commit(updated); preparedGoalDay = nil; toast = nil; tick(silent: true)
     }
 
     func savePreferences(_ preferences: SalaryPreferences) throws {
@@ -352,6 +462,7 @@ final class SalaryStore: ObservableObject {
 
     func clearSalaryData() throws {
         try commit(SalaryData(), allowRecovery: true)
+        preparedGoalDay = nil
         loadFailed = false; snapshot = nil; isDemo = false; demoLedger = nil; toast = nil; previousTick = nil
         tick()
     }

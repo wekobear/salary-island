@@ -147,8 +147,8 @@ struct SalaryDashboardView: View {
 
     private var milestoneRow: some View {
         let items = store.milestones.filter(\.enabled)
-        let pending = items.filter { item in !store.todayEvents.contains { $0.id == "milestone:" + item.id } }
-        let achieved = items.filter { item in store.todayEvents.contains { $0.id == "milestone:" + item.id } }
+        let pending = items.filter { item in !store.goalReached(item) }
+        let achieved = items.filter { item in store.goalReached(item) }
         return VStack(alignment: .leading, spacing: 6) {
             if items.isEmpty {
                 Label("今天只看时间，快乐由你安排。", systemImage: "sun.max")
@@ -161,11 +161,11 @@ struct SalaryDashboardView: View {
                         .buttonStyle(.plain).foregroundStyle(SalaryPalette.mint)
                         .popover(isPresented: $showAllMilestones) {
                             VStack(alignment: .leading, spacing: 10) {
-                                Text("今日快乐清单").font(.headline)
+                                Text("我的快乐清单").font(.headline)
                                 if store.privacy { Text("快乐清单已隐藏。") }
                                 else {
                                     ForEach(items) { item in milestoneCard(item) }
-                                    Text("各项目标独立比较，不表示已消费，也不能相加当作余额。")
+                                    Text("累计目标跨天保留，每日目标次日重算。都是估算工资，不是实际存款；各项独立比较。")
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                             }.padding(16).frame(width: 300)
@@ -180,13 +180,14 @@ struct SalaryDashboardView: View {
 
     private func milestoneCard(_ item: SalaryMilestone) -> some View {
         let achieved = store.todayEvents.first { $0.id == "milestone:" + item.id }
-        let reached = achieved != nil
-        let progress = reached ? 1 : min(1, max(0, store.earnedCents / Double(item.cents)))
+        let reached = store.goalReached(item)
+        let cumulative = !store.isDemo && item.mode == .cumulative
+        let progress = reached ? 1 : min(1, max(0, Double(store.goalEarnedCents(item)) / Double(item.cents)))
         return VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
                 Image(systemName: reached ? "checkmark.circle.fill" : item.symbol)
                     .foregroundStyle(reached ? SalaryPalette.mint : SalaryPalette.gold)
-                Text(achieved?.name ?? item.name).fontWeight(.medium).lineLimit(1)
+                Text(cumulative ? item.name : (achieved?.name ?? item.name)).fontWeight(.medium).lineLimit(1)
                 Spacer(minLength: 0)
             }.font(.system(size: 11))
             GeometryReader { geometry in
@@ -197,15 +198,22 @@ struct SalaryDashboardView: View {
                     }
             }.frame(height: 3).padding(.vertical, 2)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(item.name + "今日进度")
+                .accessibilityLabel(item.name + (cumulative ? "累计进度" : "今日进度"))
                 .accessibilityValue("\(Int(progress * 100))%")
-            Text(reached ? (achieved?.cents == item.cents ? "今日已达成" : "按原目标达成") : targetDetail(item))
-                .font(.system(size: 10)).foregroundStyle(SalaryPalette.dim).lineLimit(1)
+            Text(reached ? (cumulative ? "累计目标已达成" : (achieved?.cents == item.cents ? "今日已达成" : "按原目标达成")) : targetDetail(item))
+                .font(.system(size: 10)).foregroundStyle(SalaryPalette.dim).lineLimit(1).minimumScaleFactor(0.8)
         }.padding(9).frame(maxWidth: .infinity, alignment: .leading)
+            .help(cumulative ? "累计估算 \(SalaryEngine.formatYuan(cents: Double(store.goalEarnedCents(item)))) / \(SalaryEngine.formatYuan(cents: Double(item.cents)))；跨天保留，不是实际存款。" : "按今日估算收入计算，次日重新开始。")
             .background(reached ? SalaryPalette.mint.opacity(0.08) : .white.opacity(0.045), in: RoundedRectangle(cornerRadius: 11))
     }
 
     private func targetDetail(_ item: SalaryMilestone) -> String {
+        if !store.isDemo && item.mode == .cumulative {
+            let earned = store.goalEarnedCents(item)
+            let percent = min(100, Int(Double(earned) / Double(item.cents) * 100))
+            let remaining = SalaryEngine.formatYuan(cents: Double(max(0, item.cents - earned)))
+            return "累计 \(percent)% · 还差\(remaining)"
+        }
         guard let s = store.snapshot, s.dayCents > 0 else { return "\(SalaryEngine.formatYuan(cents: Double(item.cents))) · 等待营业" }
         if Double(item.cents) > s.dayCents { return "约合 \(Int(ceil(Double(item.cents) / s.dayCents))) 天工资" }
         let rate = s.hourlyYuan * 100 / 60

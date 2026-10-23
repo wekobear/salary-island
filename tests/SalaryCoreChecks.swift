@@ -134,6 +134,11 @@ struct SalaryCoreChecks {
         _ = rollback.advance(now:time(9,12),previous:time(9,11,59),milestones:SalaryMilestone.defaults,blocked:false,busy:true)
         check(rollback.advance(now:time(9,10),previous:time(9,12),milestones:SalaryMilestone.defaults,blocked:false,busy:false) == nil, "clock rollback clears pending rewards")
         check(rollback.advance(now:time(9,12),previous:time(9,11,59),milestones:SalaryMilestone.defaults,blocked:false,busy:false) == nil, "clock re-crossing cannot replay reward")
+        check(SalaryGoalMath.earnedCents(snapshot: snap, from: time(9), through: time(10)) == 10_000, "cumulative math clips to requested paid interval")
+        check(SalaryGoalMath.earnedCents(snapshot: snap, from: time(12), through: time(13)) == 0, "cumulative math excludes unpaid break")
+        check(SalaryGoalMath.totalCents(snapshots: [snap, snap], from: time(9), through: time(10)) == 10_000, "cumulative math deduplicates snapshot IDs")
+        check(SalaryGoalMath.earnedCents(snapshot: snap, from: time(11), through: time(10)) == 0, "cumulative math rejects reversed interval")
+        check(SalaryGoalMath.earnedCents(snapshot: snap, from: time(9), through: time(9,0,1)) == 2, "cumulative math floors fractional cents without premature threshold")
         print("\n\(count) checks passed.")
     }
 }

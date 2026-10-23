@@ -211,6 +211,109 @@ import Foundation
         try Data("blocked".utf8).write(to: rollbackDir)
         do { try rollback.saveProfile(raised); fatalError("write failure accepted") }
         catch { check(rollback.snapshot == beforeFailure && rollback.data.versions == versionsBeforeFailure && rollback.earnedCents == 10_000, "failed immediate save leaves active salary and snapshot unchanged") }
+        // Cumulative goals: synthetic profiles only; all files are isolated under root.
+        now = time(10)
+        let goalURL = root.appendingPathComponent("goals.json")
+        let goals = SalaryStore(storageURL: goalURL, clock: { now }, startRuntime: false)
+        try goals.saveProfile(profile)
+        let robot = SalaryMilestone(id: "robot", name: "Robot", cents: 200_000, symbol: "gift", mode: .cumulative)
+        try goals.saveMilestones([robot, .init(id: "coffee", name: "Coffee", cents: 2_000, symbol: "cup", mode: .daily)])
+        func goal(_ id: String = "robot") -> SalaryMilestone { goals.data.milestones.first { $0.id == id }! }
+        check(goals.goalEarnedCents(goal()) == 10_000, "new cumulative goal includes today's planned earnings")
+        let goalStart = goal().startedAt
+        now = time("2026-01-06", 8); goals.tick()
+        check(goals.goalEarnedCents(goal()) == 80_000, "midnight preserves previous day's complete earnings")
+        check(!goals.goalReached(goal("coffee")), "daily goal resets independently at next day")
+        now = time("2026-01-06", 10); goals.tick()
+        check(goals.goalEarnedCents(goal()) == 90_000, "cumulative goal adds today's partial earnings")
+        let goalsReloaded = SalaryStore(storageURL: goalURL, clock: { now }, startRuntime: false)
+        check(goalsReloaded.goalEarnedCents(goalsReloaded.data.milestones.first { $0.id == "robot" }!) == 90_000, "cumulative total and start date survive restart")
+        goals.tick(); goals.tick()
+        check(goals.goalEarnedCents(goal()) == 90_000, "repeated ticks never double count earnings")
+        var changedRobot = goal(); changedRobot.name = "Renamed"; changedRobot.cents = 400_000
+        try goals.saveMilestones([changedRobot, goal("coffee")])
+        check(goal().startedAt == goalStart && goals.goalEarnedCents(goal()) == 90_000, "rename and price edits retain cumulative start and balance")
+        now = time("2026-01-08", 10); goals.tick()
+        check(goals.goalEarnedCents(goal()) == 250_000, "offline missed workday is filled from historical plan")
+        let recordedPast = goals.data.days[SalaryEngine.ledgerID(day: "2026-01-07", zone: "Asia/Shanghai")]
+        var doublePay = profile; doublePay.monthlyCents *= 2
+        try goals.saveProfile(doublePay)
+        check(goals.goalEarnedCents(goal()) == 260_000 && goals.data.days[recordedPast!.snapshot.id] == recordedPast, "salary edit updates today without repricing past cumulative days")
+        try goals.saveMilestones([goal(), goal("coffee"), .init(id: "new", name: "New", cents: 500_000, symbol: "gift", mode: .cumulative)])
+        check(goals.goalEarnedCents(goal("new")) == 20_000, "new goal does not inherit income from before creation day")
+        now = time("2026-01-08", 18); goals.tick()
+        check(goals.goalReached(goal()) && goal().achievedAt != nil, "cumulative goal completion is persisted")
+        now = time("2026-01-09", 10); goals.tick()
+        check(goals.goalReached(goal()) && !goals.todayEvents.contains { $0.kind == .cumulative }, "completed goal remains reached without another day's celebration")
+        let totalBeforeDemo = goals.goalEarnedCents(goal())
+        goals.startDemo(); goals.tick(); goals.endDemo()
+        check(goals.goalEarnedCents(goal()) == totalBeforeDemo, "demo salary does not enter real cumulative progress")
+        now = time("2026-01-10", 10); goals.tick()
+        let saturdayTotal = goals.goalEarnedCents(goal("new"))
+        now = time("2026-01-11", 18); goals.tick()
+        check(goals.goalEarnedCents(goal("new")) == saturdayTotal, "rest days preserve balance without new earnings")
+        now = time("2026-02-02", 10); goals.tick()
+        check(goals.goalEarnedCents(goal("new")) > saturdayTotal, "cumulative progress crosses month boundaries")
+        let beforeReset = goal("new").startedAt
+        try goals.saveMilestones(goals.data.milestones.filter { $0.id != "new" })
+        try goals.saveMilestones(goals.data.milestones + [.init(id: "replacement", name: "Replacement", cents: 500_000, symbol: "gift", mode: .cumulative)])
+        check(goal("replacement").startedAt! > beforeReset!, "deleting and recreating a goal starts from the new day")
+
+        var legacyGoals = SalaryData()
+        legacyGoals.versions = [.init(effectiveDay: "2026-01-05", profile: profile)]
+        let migrationSnapshot = try SalaryEngine.snapshot(at: time(10), versions: legacyGoals.versions)
+        legacyGoals.days[migrationSnapshot.id] = SalaryDayLedger(snapshot: migrationSnapshot)
+        legacyGoals.milestones = [.init(id: "old-large", name: "Legacy", cents: 400_000, symbol: "gift"), .init(id: "old-small", name: "Small", cents: 2_000, symbol: "cup")]
+        let migrateURL = root.appendingPathComponent("legacy-goals.json")
+        try JSONEncoder().encode(legacyGoals).write(to: migrateURL)
+        now = time("2026-01-06",10)
+        let migratedGoals = SalaryStore(storageURL: migrateURL, clock: { now }, startRuntime: false)
+        let large = migratedGoals.data.milestones.first { $0.id == "old-large" }!
+        check(large.mode == .cumulative && migratedGoals.goalEarnedCents(large) == 90_000, "legacy large goal migrates using earliest retained day")
+        check(migratedGoals.data.milestones.first { $0.id == "old-small" }?.mode == .daily, "legacy small goal keeps daily behavior")
+        let migratedAgain = SalaryStore(storageURL: migrateURL, clock: { now }, startRuntime: false)
+        check(migratedAgain.data.milestones == migratedGoals.data.milestones, "goal migration is idempotent")
+
+        now = time("2026-01-05", 10)
+        let celebration = SalaryStore(storageURL: root.appendingPathComponent("celebration.json"), clock: { now }, startRuntime: false)
+        try celebration.saveProfile(profile)
+        try celebration.saveMilestones([.init(id: "big", name: "Big", cents: 81_000, symbol: "gift", mode: .cumulative)])
+        now = time("2026-01-06", 9,5,59); celebration.tick(); celebration.toast = nil
+        celebration.visibleSources.insert("test")
+        now = time("2026-01-06", 9,6); celebration.tick()
+        check(celebration.todayEvents.filter { $0.kind == .cumulative && $0.displayed }.count == 1, "live cumulative threshold shares existing notification scheduler")
+        celebration.toast = nil; celebration.tick()
+        check(celebration.todayEvents.filter { $0.kind == .cumulative }.count == 1, "repeated threshold tick cannot replay cumulative reward")
+        try celebration.saveMilestones([.init(id: "lower", name: "Lower", cents: 500, symbol: "gift", mode: .cumulative)])
+        check(celebration.toast == nil && celebration.data.milestones.first?.achievedAt != nil, "new already-funded goal records silently")
+
+        // A timezone switch must not earn overlapping old-zone work after activation.
+        now = time("2026-01-05",10)
+        let travel = SalaryStore(storageURL: root.appendingPathComponent("goal-travel.json"), clock: { now }, startRuntime: false)
+        try travel.saveProfile(profile)
+        try travel.saveMilestones([.init(id: "trip-goal", name: "Trip", cents: 900_000, symbol: "gift", mode: .cumulative)])
+        var destination = profile; destination.schedule.timeZoneID = "Asia/Tokyo"
+        try travel.saveProfile(destination)
+        now = time("2026-01-06",8); travel.tick()
+        now = time("2026-01-06",10); travel.tick()
+        let travelGoal = travel.data.milestones[0]
+        let tokyoRate = travel.snapshot!.hourlyYuan * 100
+        check(travel.goalEarnedCents(travelGoal) == 80_000 + Int64(tokyoRate), "timezone switch clips old zone and counts only destination time after activation")
+        let travelBefore = travel.goalEarnedCents(travelGoal)
+        now = time("2026-01-06",9,30); travel.tick()
+        check(travel.goalEarnedCents(travelGoal) <= travelBefore, "clock rollback recomputes without accumulating duplicate seconds")
+        now = time("2026-01-06",10); travel.tick()
+        check(travel.goalEarnedCents(travelGoal) == travelBefore, "clock recovery returns to same cumulative balance")
+
+        now = time("2026-01-05",10)
+        let failGoalDir = root.appendingPathComponent("fail-goal-dir")
+        let failGoals = SalaryStore(storageURL: failGoalDir.appendingPathComponent("salary.json"), clock: { now }, startRuntime: false)
+        try failGoals.saveProfile(profile)
+        let beforeGoals = failGoals.data.milestones
+        try FileManager.default.removeItem(at: failGoalDir)
+        try Data("blocked".utf8).write(to: failGoalDir)
+        do { try failGoals.saveMilestones([robot]); fatalError("goal write failure accepted") }
+        catch { check(failGoals.data.milestones == beforeGoals, "failed goal save leaves prior mode and progress intact") }
         print("\n\(count) store checks passed.")
     }
 }
