@@ -105,6 +105,8 @@ import Foundation
         check(interaction.toast == nil, "active settings defer milestone")
         interaction.interactionSources.remove("settings"); interaction.tick()
         check(interaction.toast?.title == "一杯奶茶", "settings resign allows queued milestone")
+        check(interaction.walletRewardID == interaction.toast?.id && interaction.consumeWalletReward(), "presented milestone can animate the expanded wallet")
+        check(!interaction.consumeWalletReward(), "wallet reward is consumed once across reopen")
         interaction.interactionSources.insert("settings"); now = time(9, 12, 5); interaction.tick()
         check(interaction.toast == nil, "settings do not pin an existing toast forever")
 
@@ -124,7 +126,11 @@ import Foundation
         check(demo.realTodayEvents.contains { $0.id == "milestone:tea" && $0.skipped }, "real ledger advances silently during demo")
         demo.endDemo(); check(demo.toast == nil, "leaving demo does not replay real milestones")
         check(demo.setPrivacy(true), "privacy persists successfully")
+        check(demo.walletState.displayedProgress == 0 && !demo.walletState.motionAllowed, "privacy hides wallet progress and motion")
         demo.previewCelebration(); check(demo.toast == nil, "explicit preview respects privacy")
+        let walletRevision = demo.walletState.revision
+        demo.tick(silent: true)
+        check(demo.walletState.revision != walletRevision, "silent refresh resets wallet motion context")
         // Same-zone saves reprice today, never prior days, and survive restart.
         now = time("2026-01-02", 18)
         let liveURL = root.appendingPathComponent("live.json")

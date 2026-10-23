@@ -148,6 +148,9 @@
 		ABCE00000000000000000002 /* SalaryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000002; };
 		ABCE00000000000000000003 /* SalaryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000003; };
 		ABCE00000000000000000004 /* SalarySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000004; };
+		ABCE00000000000000000005 /* SalaryWalletArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000005; };
+		ABCE00000000000000000006 /* SalaryWalletState.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000006; };
+		ABCE00000000000000000007 /* SalaryWalletView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000007; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -319,6 +322,9 @@
 		ABCD00000000000000000002 /* SalaryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryStore.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000003 /* SalaryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryViews.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000004 /* SalarySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalarySettingsView.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000005 /* SalaryWalletArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryWalletArtwork.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000006 /* SalaryWalletState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryWalletState.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000007 /* SalaryWalletView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryWalletView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -571,6 +577,9 @@
 		14CEF4142C5CAED300855D72 /* boringNotch */ = {
 			isa = PBXGroup;
 			children = (
+				ABCD00000000000000000005 /* SalaryWalletArtwork.swift */,
+				ABCD00000000000000000006 /* SalaryWalletState.swift */,
+				ABCD00000000000000000007 /* SalaryWalletView.swift */,
 				ABCD00000000000000000004 /* SalarySettingsView.swift */,
 				ABCD00000000000000000003 /* SalaryViews.swift */,
 				ABCD00000000000000000002 /* SalaryStore.swift */,
@@ -1001,6 +1010,9 @@
 				507266DB2C908E2E00A2D00D /* HoverButton.swift in Sources */,
 				1471A8592C6281BD0058408D /* BoringNotchWindow.swift in Sources */,
 				14CEF4182C5CAED300855D72 /* ContentView.swift in Sources */,
+				ABCE00000000000000000005 /* SalaryWalletArtwork.swift in Sources */,
+				ABCE00000000000000000006 /* SalaryWalletState.swift in Sources */,
+				ABCE00000000000000000007 /* SalaryWalletView.swift in Sources */,
 				ABCE00000000000000000004 /* SalarySettingsView.swift in Sources */,
 				ABCE00000000000000000003 /* SalaryViews.swift in Sources */,
 				ABCE00000000000000000002 /* SalaryStore.swift in Sources */,
@@ -1062,14 +1074,14 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BoringNotchXPCHelper/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = BoringNotchXPCHelper;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.7;
+				MARKETING_VERSION = 0.1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = local.salaryisland.preview.BoringNotchXPCHelper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1087,14 +1099,14 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BoringNotchXPCHelper/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = BoringNotchXPCHelper;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.7;
+				MARKETING_VERSION = 0.1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = local.salaryisland.preview.BoringNotchXPCHelper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1241,7 +1253,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 12;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"boringNotch/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
@@ -1269,7 +1281,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.7;
+				MARKETING_VERSION = 0.1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = local.salaryisland.preview;
 				PRODUCT_MODULE_NAME = SalaryIsland;
 				PRODUCT_NAME = "薪动日常";
@@ -1297,7 +1309,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 12;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"boringNotch/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
@@ -1324,7 +1336,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.7;
+				MARKETING_VERSION = 0.1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = local.salaryisland.preview;
 				PRODUCT_MODULE_NAME = SalaryIsland;
 				PRODUCT_NAME = "薪动日常";

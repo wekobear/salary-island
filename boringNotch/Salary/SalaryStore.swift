@@ -41,6 +41,10 @@ final class SalaryStore: ObservableObject {
     @Published private(set) var isDemo = false
     @Published var errorMessage: String?
     @Published var welcomeMessage: String?
+    @Published private(set) var walletRewardID: UUID?
+    @Published private var walletRevision = UUID()
+    private var consumedWalletRewardID: UUID?
+    private var walletRewardAt: Date?
     var interactionSources: Set<String> = []
     var visibleSources: Set<String> = []
     var requestOpenIsland: (() -> Void)?
@@ -74,6 +78,20 @@ final class SalaryStore: ObservableObject {
         return data.days[context.id]?.events ?? []
     }
     var earnedCents: Double { snapshot?.earnedCents(at: now) ?? 0 }
+    var walletState: SalaryWalletState {
+        SalaryWalletState(progress: snapshot?.progress(at: now) ?? 0, date: now,
+                          snapshot: snapshot, demo: isDemo, hidden: privacy,
+                          motionAllowed: !privacy && !quiet && !locked && !sleeping && !fullscreen && !visibleSources.isEmpty,
+                          revision: walletRevision)
+    }
+
+    /// Only the expanded wallet consumes a freshly presented reward. Reopening never replays it.
+    func consumeWalletReward() -> Bool {
+        guard let id = walletRewardID, id != consumedWalletRewardID else { return false }
+        consumedWalletRewardID = id
+        return walletState.motionAllowed && toast?.id == id
+            && walletRewardAt.map { clock().timeIntervalSince($0) >= 0 && clock().timeIntervalSince($0) < 2 } == true
+    }
     var remaining: TimeInterval { max(0, (snapshot?.shiftEnd ?? now).timeIntervalSince(now)) }
     var isFinished: Bool { snapshot?.shiftEnd.map { now >= $0 } ?? false }
     var beforeWork: Bool { snapshot?.shiftStart.map { now < $0 } ?? false }
@@ -154,6 +172,7 @@ final class SalaryStore: ObservableObject {
     }
 
     func refreshTimer() {
+        walletRevision = UUID()
         timer?.invalidate(); timer = nil
         if locked || sleeping { toast = nil; return }
         tick()
@@ -256,6 +275,7 @@ final class SalaryStore: ObservableObject {
     }
 
     func tick(silent: Bool = false) {
+        if silent { walletRevision = UUID() }
         guard !loadFailed else { snapshot = nil; return }
         let realNow = clock()
         let date = isDemo ? (demoBase ?? realNow).addingTimeInterval(realNow.timeIntervalSince(demoStarted ?? realNow)) : realNow
@@ -307,6 +327,10 @@ final class SalaryStore: ObservableObject {
         let fresh = options.filter { date.timeIntervalSince(data.copyHistory[$0] ?? .distantPast) >= 7 * 86400 }
         let message = fresh.first ?? options.first ?? event.name
         toast = SalaryToast(title: event.name, message: message, symbol: event.symbol, isDemo: demo)
+        if event.kind == .milestone || event.kind == .cumulative {
+            walletRewardAt = date
+            walletRewardID = toast?.id
+        } else { walletRewardID = nil }
         toastAt = date
         if !demo { var updated = data; updated.copyHistory[message] = date; try? commit(updated) }
         if data.preferences.sound && !privacy && !quiet { NSSound(named: "Pop")?.play() }

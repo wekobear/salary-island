@@ -8,9 +8,12 @@ enum SalaryPalette {
 }
 
 struct SalaryCompactView: View {
-    @ObservedObject private var store = SalaryStore.shared
+    @ObservedObject private var store: SalaryStore
     let centerWidth: CGFloat
     let height: CGFloat
+    init(centerWidth: CGFloat, height: CGFloat, store: SalaryStore? = nil) {
+        self.centerWidth = centerWidth; self.height = height; self.store = store ?? .shared
+    }
     var body: some View {
         HStack(spacing: 0) {
             HStack(spacing: 5) {
@@ -20,16 +23,21 @@ struct SalaryCompactView: View {
             }
             .foregroundStyle(SalaryPalette.mint).frame(width: 111)
             Color.black.frame(width: max(0, centerWidth - 10))
-            Text(store.isDemo ? "演示 · \(store.amountText)" : (store.configured ? store.amountText : "薪动日常"))
+            HStack(spacing: 3) {
+                SalaryWalletView(state: store.walletState, compact: true)
+                    .frame(width: 22, height: 22)
+                Text(store.isDemo ? "演示 \(store.amountText)" : (store.configured ? store.amountText : "薪动日常"))
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .monospacedDigit().lineLimit(1).minimumScaleFactor(0.65)
-                .foregroundStyle(SalaryPalette.gold).frame(width: 111)
+                .foregroundStyle(SalaryPalette.gold)
+            }.frame(width: 111)
         }.frame(height: height).accessibilityElement(children: .combine)
     }
 }
 
 struct SalaryDashboardView: View {
-    @ObservedObject private var store = SalaryStore.shared
+    @ObservedObject private var store: SalaryStore
+    init(store: SalaryStore? = nil) { self.store = store ?? .shared }
     @State private var showReference = false
     @State private var showAllMilestones = false
     @State private var referenceText = ""
@@ -48,7 +56,17 @@ struct SalaryDashboardView: View {
                             .foregroundStyle(SalaryPalette.mint).lineLimit(1).minimumScaleFactor(0.7)
                     }
                     Spacer(minLength: 16)
-                    VStack(alignment: .trailing, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Button { SalaryWalletPreviewWindow.shared.show() } label: {
+                            SalaryWalletView(state: store.walletState, celebrationID: store.walletRewardID,
+                                             claimCelebration: store.consumeWalletReward)
+                                .frame(width: 86, height: 72)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("钱包随今日收入慢慢鼓起 · 点击预览动效")
+                        .accessibilityLabel("预览心动钱包")
+                        VStack(alignment: .trailing, spacing: 4) {
                         HStack(spacing: 6) {
                             Circle().fill(SalaryPalette.mint).frame(width: 5, height: 5)
                             Text(store.isDemo ? "演示数据 · 今日估算收入" : "今日估算收入")
@@ -59,6 +77,7 @@ struct SalaryDashboardView: View {
                             .monospacedDigit().foregroundStyle(SalaryPalette.gold)
                             .lineLimit(1).minimumScaleFactor(0.6)
                             .accessibilityLabel("今日估算收入 \(store.amountText)")
+                        }
                     }
                 }
                 if let snapshot = store.snapshot {
