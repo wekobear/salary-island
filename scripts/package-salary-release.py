@@ -107,6 +107,11 @@ def main():
     xpc = app / "Contents/XPCServices/BoringNotchXPCHelper.xpc"
     main_binary = verify_info(app, BUNDLE)
     xpc_binary = verify_info(xpc, XPC_BUNDLE)
+    # Xcode's build postprocessing registers app URLs without launching them.
+    # Undo only this owned output tree; never scan/reset the global database or
+    # unregister an installed app with the same bundle identifier.
+    run("/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister",
+        "-u", "-R", app)
     architectures = run("lipo", "-archs", main_binary, capture=True).strip()
     if architectures != "arm64" or run("lipo", "-archs", xpc_binary, capture=True).strip() != "arm64":
         raise RuntimeError("This release is intended for Apple Silicon only")
@@ -168,6 +173,7 @@ def main():
                 "mainSandbox": True, "xpcSandbox": xpc_entitlements.get("com.apple.security.app-sandbox"),
                 "verifiedCodeComponents": len(components), "appFilesScanned": product_count,
                 "sourceFilesScanned": source_count, "pathAndCredentialPatternScan": "passed",
+                "buildOutputRegistrationRemoved": True,
                 "launchedOrInstalled": False, "published": False, "assets": assets}
     (output / "BUILD-MANIFEST.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
     print(json.dumps(manifest, ensure_ascii=False, indent=2))

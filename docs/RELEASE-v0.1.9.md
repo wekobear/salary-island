@@ -25,4 +25,4 @@ python3 scripts/package-salary-release.py
 
 可用 `--package-cache <目录>` 指定已按锁文件解析的 SwiftPM 缓存，`--derived-data <目录>` 指定构建目录。脚本保持锁定依赖解析，所有输出位于仓库忽略的 `work/` 下；目标输出目录已存在时拒绝覆盖。无需访问账户或用户配置，不启动任何生成的 app。
 
-脚本仅构建 Release、清理调试路径、签名和静态验证，输出 app/source ZIP、校验和及构建清单。清单记录源码 commit、工具链、版本、架构、签名方式与资产哈希。不是位级可重复构建的保证；每次构建必须以本次 SHA-256 为准。main/tag 推送、创建 Release 与上传资产由审核后的独立步骤执行；脚本不会进行这些操作。
+脚本仅构建 Release、清理调试路径、签名和静态验证；构建后撤销 Xcode 对本次产物目录的 Launch Services 登记，不操作已安装应用。输出 app/source ZIP、校验和及构建清单。清单记录源码 commit、工具链、版本、架构、签名方式与资产哈希。不是位级可重复构建的保证；每次构建必须以本次 SHA-256 为准。main/tag 推送、创建 Release 与上传资产由审核后的独立步骤执行；脚本不会进行这些操作。
