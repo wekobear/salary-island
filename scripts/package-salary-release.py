@@ -110,8 +110,19 @@ def main():
     # Xcode's build postprocessing registers app URLs without launching them.
     # Undo only this owned output tree; never scan/reset the global database or
     # unregister an installed app with the same bundle identifier.
-    run("/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister",
-        "-u", "-R", app)
+    registrar = "/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister"
+    unregistration = subprocess.run([registrar, "-u", "-R", str(app)],
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if unregistration.returncode:
+        # An already-absent output may return -10814. Confirm absence rather
+        # than blindly ignoring a failure. Do not print/store unrelated entries.
+        diagnostic = unregistration.stdout + unregistration.stderr
+        if b"-10814" not in diagnostic:
+            raise RuntimeError("Could not unregister the owned build output")
+        registry = subprocess.run([registrar, "-dump"], check=True,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if str(app).encode() in registry.stdout:
+            raise RuntimeError("Build output is still registered; stop before packaging")
     architectures = run("lipo", "-archs", main_binary, capture=True).strip()
     if architectures != "arm64" or run("lipo", "-archs", xpc_binary, capture=True).strip() != "arm64":
         raise RuntimeError("This release is intended for Apple Silicon only")
