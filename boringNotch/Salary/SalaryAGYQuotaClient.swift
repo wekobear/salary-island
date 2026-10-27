@@ -22,12 +22,17 @@ enum AGYUsageTextParser {
         let text = raw.replacingOccurrences(of: "\u{1b}\\[[0-9;]*m", with: "", options: .regularExpression)
             .replacingOccurrences(of: "\r\n", with: "\n")
         guard !text.contains("\u{1b}"), !text.contains("\u{0}") else { throw AIQuotaError.malformed }
-        let lines = text.split(separator: "\n", omittingEmptySubsequences: true).map { $0.trimmingCharacters(in: .whitespaces) }
-        guard let header = lines.firstIndex(of: "Quota:") else { throw AIQuotaError.malformed }
+        let lines = try text.split(separator: "\n", omittingEmptySubsequences: true).map { try normalizedHorizontalSpaces(in: $0) }
+        let header = lines.firstIndex(of: "Quota:")
+        let body = header.map { lines[($0 + 1)...] } ?? lines[...]
+        // Headerless reports are trusted only after whole-report validation: every
+        // non-empty line must be an independently recognized quota row, so arbitrary
+        // text that merely contains numbers is still rejected.
+        if header == nil { try validateHeaderlessReport(Array(body), timeZone: timeZone) }
         let expression = try NSRegularExpression(pattern: #"^(.+?) (.+?) Limit Remaining ([0-9]+(?:\.[0-9]+)?)% (.+)$"#)
         var windows: [AIQuotaWindow] = []
         var ids = Set<String>()
-        for line in lines.dropFirst(header + 1) {
+        for line in body {
             guard line.contains("Limit Remaining") else { continue }
             // Match the exact requested family before deriving a window. Other
             // families are not aggregated or used as a fallback for this card.
@@ -51,6 +56,57 @@ enum AGYUsageTextParser {
         guard !windows.isEmpty else { throw AIQuotaError.malformed }
         windows.sort { ($0.durationMinutes ?? Int.max, $0.position) < ($1.durationMinutes ?? Int.max, $1.position) }
         return AIQuotaSnapshot(provider: "Gemini", accountID: sourceID, updatedAt: updatedAt, windows: windows)
+    }
+
+    /// Headerless rows may separate fields with ASCII TABs or padded ASCII spaces
+    /// (the exact control code is unconfirmed), so runs of either collapse to a
+    /// single space per separator before any regex runs. Only horizontal
+    /// whitespace is normalized; every other control character, NUL, escape and
+    /// Unicode whitespace still rejects the report.
+    static func normalizedHorizontalSpaces(in line: Substring) throws -> String {
+        var normalized = ""
+        var separatorPending = false
+        for scalar in line.unicodeScalars {
+            if scalar == " " || scalar == "\t" {
+                if !normalized.isEmpty { separatorPending = true }
+                continue
+            }
+            guard !(scalar.value < 0x20 || (0x7F...0x9F).contains(scalar.value)),
+                  !scalar.properties.isWhitespace else { throw AIQuotaError.malformed }
+            if separatorPending { normalized.append(" "); separatorPending = false }
+            normalized.unicodeScalars.append(scalar)
+        }
+        return normalized
+    }
+
+    /// Accepts a headerless report only when every non-empty line is independently
+    /// recognized: an exact known group/lane quota row, or the synthetic
+    /// model-specific sample whose values are validated but never shown or merged
+    /// because its semantics cannot be mapped onto a shared window.
+    private static func validateHeaderlessReport(_ lines: [String], timeZone: TimeZone) throws {
+        let quotaRow = try NSRegularExpression(pattern: #"^(Gemini Models|Argon Models|Claude and GPT models) (Five Hour|Weekly) Limit Remaining ([0-9]+(?:\.[0-9]+)?)% (.+)$"#)
+        let modelRow = try NSRegularExpression(pattern: #"^Gemini ([0-9]+) Argon Gemini ([0-9]+) Argon Weekly Limit ([0-9]+(?:\.[0-9]+)?)% (.+)$"#)
+        var lanes = Set<String>(), versions = Set<String>()
+        for line in lines {
+            let range = NSRange(line.startIndex..., in: line)
+            if let match = quotaRow.firstMatch(in: line, range: range) {
+                let groupName = String(line[Range(match.range(at: 1), in: line)!])
+                let lane = String(line[Range(match.range(at: 2), in: line)!])
+                guard let remaining = Double(String(line[Range(match.range(at: 3), in: line)!])),
+                      remaining.isFinite, (0...100).contains(remaining),
+                      lanes.insert(groupName + " " + lane).inserted else { throw AIQuotaError.malformed }
+                _ = try QuotaResetDateParser.parse(String(line[Range(match.range(at: 4), in: line)!]), timeZone: timeZone)
+            } else if let match = modelRow.firstMatch(in: line, range: range) {
+                let version = String(line[Range(match.range(at: 1), in: line)!])
+                guard version == String(line[Range(match.range(at: 2), in: line)!]),
+                      let remaining = Double(String(line[Range(match.range(at: 3), in: line)!])),
+                      remaining.isFinite, (0...100).contains(remaining),
+                      versions.insert(version).inserted else { throw AIQuotaError.malformed }
+                _ = try QuotaResetDateParser.parse(String(line[Range(match.range(at: 4), in: line)!]), timeZone: timeZone)
+            } else {
+                throw AIQuotaError.malformed
+            }
+        }
     }
 }
 

@@ -16,6 +16,7 @@ private struct MilestoneDraft: Identifiable {
 struct SalarySettingsView: View {
     @ObservedObject private var store = SalaryStore.shared
     @State private var tab = 0
+    @State private var showGeminiConnection = false
     @State private var salary = ""
     @State private var profile = SalaryProfile()
     @State private var targets: [MilestoneDraft] = []
@@ -287,6 +288,18 @@ struct SalarySettingsView: View {
                 }
                 if store.privacy { Text("参考金额已隐藏。").foregroundStyle(.secondary) }
             } header: { Text("一份参考，不是对你的定价") }
+            #if DEBUG
+            Section {
+                Button("连接 AI 额度…") { showGeminiConnection = true }
+                    .disabled(store.privacy || store.isDemo)
+                    .popover(isPresented: $showGeminiConnection) {
+                        AIQuotaConnectionPanel(connections: AIQuotaConnections.shared)
+                            .onAppear { AIQuotaConnections.shared.setPrivateOrDemo(store.privacy || store.isDemo); AIQuotaConnections.shared.setConnectionPanelVisible(true) }
+                            .onDisappear { AIQuotaConnections.shared.setConnectionPanelVisible(false) }
+                    }
+                Text("仅在连接并取得真实额度后显示在刘海中。") .font(.caption).foregroundStyle(.secondary)
+            } header: { Text("AI 额度") }
+            #endif
             Section {
                 Button("保存偏好") {
                     perform {

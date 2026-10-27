@@ -31,6 +31,13 @@ enum AIQuotaError: Error, Equatable {
     case cleanupFailed
     case sourceChanged
     case rpcRejected
+    /// Local CLI process outcome categories. Associated values carry only the
+    /// child's Int32 exit status or terminating signal; never stderr or paths.
+    case launchFailed
+    case pipeFailed
+    case exitedNonzero(Int32)
+    case terminatedBySignal(Int32)
+    case emptyOutput
 }
 
 /// Quota reset dates are positive Unix times no later than 9999-12-31 UTC.

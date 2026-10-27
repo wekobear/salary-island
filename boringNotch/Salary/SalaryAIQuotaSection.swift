@@ -14,42 +14,13 @@ struct SalaryAIQuotaSection: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
-            panel(at: context.date)
-        }
-    }
-
-    private func panel(at now: Date) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack {
-                Text(demo ? "AI 额度 · 演示数据" : "AI 额度").font(.system(size: 11, weight: .medium))
-                Spacer()
-                Button(demo ? "退出演示" : "演示") { demo.toggle(); demoDate = Date(); detail = nil }
-                    .font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(SalaryPalette.mint)
-                Button(connectionTitle) { showConnectionInfo = true }
-                    .font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(SalaryPalette.mint)
-                    .popover(isPresented: $showConnectionInfo) {
-                        #if DEBUG
-                        AIQuotaConnectionPanel(connections: connections)
-                        #else
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("AI 额度 · 离线预览").font(.headline)
-                            Text("本版本未连接真实账户。点击“演示”可查看虚构额度；退出演示后恢复未连接。")
-                            Text("Codex 显示账户窗口；Gemini 指 Antigravity 额度组；GLM 5.3 指 Coding Plan 套餐共享额度。")
-                            Text("演示不会读取凭据、查询服务或影响工资计算。")
-                        }.font(.system(size: 12)).padding(16).frame(width: 320)
-                            .background(Color.black.opacity(0.96)).preferredColorScheme(.dark)
-                        #endif
-                    }
+            #if DEBUG
+            if !connections.visibleProviders.isEmpty && !demo {
+                panel(at: context.date)
             }
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 8) {
-                    ForEach(AIQuotaProvider.allCases) { provider in card(provider, now: now).frame(minWidth: 165) }
-                }
-                VStack(spacing: 8) {
-                    HStack(alignment: .top, spacing: 8) { card(.codex, now: now); card(.gemini, now: now) }
-                    card(.glm, now: now)
-                }
-            }
+            #else
+            EmptyView()
+            #endif
         }
         .onAppear { visible = true; connections.setPrivateOrDemo(privacy || demo); connections.setVisible(true) }
         .onDisappear { visible = false; connections.setVisible(false); detail = nil; showConnectionInfo = false }
@@ -70,6 +41,39 @@ struct SalaryAIQuotaSection: View {
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)) { _ in
             connections.setSleeping(false)
         }
+    }
+
+    private func panel(at now: Date) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text(demo ? "AI 额度 · 演示数据" : "AI 额度").font(.system(size: 11, weight: .medium))
+                Spacer()
+                Button(connectionTitle) { showConnectionInfo = true }
+                    .font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(SalaryPalette.mint)
+                    .popover(isPresented: $showConnectionInfo) {
+                        #if DEBUG
+                        AIQuotaConnectionPanel(connections: connections)
+                        #else
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("AI 额度 · 离线预览").font(.headline)
+                            Text("本版本未连接真实账户。点击“演示”可查看虚构额度；退出演示后恢复未连接。")
+                            Text("Codex 显示账户窗口；Gemini 指 Antigravity 额度组；GLM 5.3 指 Coding Plan 套餐共享额度。")
+                            Text("演示不会读取凭据、查询服务或影响工资计算。")
+                        }.font(.system(size: 12)).padding(16).frame(width: 320)
+                            .background(Color.black.opacity(0.96)).preferredColorScheme(.dark)
+                        #endif
+                    }
+            }
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 8) {
+                    ForEach(connections.visibleProviders) { provider in card(provider, now: now).frame(minWidth: 165) }
+                }
+                VStack(spacing: 8) {
+                    ForEach(connections.visibleProviders) { provider in card(provider, now: now) }
+                }
+            }
+        }
+
     }
 
     private var connectionTitle: String {
@@ -136,6 +140,10 @@ struct SalaryAIQuotaSection: View {
                     Capsule().fill(.white.opacity(0.09)).frame(height: 3).accessibilityHidden(true)
                     Text(hidden ? "额度与重置时间已隐藏" : status(value)).font(.system(size: 9)).foregroundStyle(SalaryPalette.dim)
                 }
+                if !hidden, let snapshot = value.snapshot {
+                    Text("更新 \(snapshot.updatedAt.formatted(date: .omitted, time: .shortened))")
+                        .font(.system(size: 8)).foregroundStyle(SalaryPalette.dim).lineLimit(1)
+                }
                 if !hidden, value.isStale(at: now) {
                     Text("数据已过期 · 查看更新时间").font(.system(size: 9)).foregroundStyle(SalaryPalette.gold)
                 }
@@ -153,7 +161,7 @@ struct SalaryAIQuotaSection: View {
                 ScrollView { VStack(alignment: .leading, spacing: 9) {
                     Text("\(provider.title) · \(demo ? "虚构演示" : provider.scope)").font(.headline)
                     if let snapshot = value.snapshot {
-                        Text(demo ? "来源：本地虚构演示，未查询任何账户" : (snapshot.backendAccountID == nil ? "来源：CLI 当前登录状态（身份未核验）" : "来源：CLI 当前登录状态（可检测身份变化）"))
+                        Text(demo ? "来源：本地虚构演示，未查询任何账户" : (provider == .gemini ? "来源：所选 AGY CLI /usage（身份未核验）" : (snapshot.backendAccountID == nil ? "来源：所选登录配置（身份未核验）" : "来源：所选登录配置（可检测身份变化）")))
                         if snapshot.windows.isEmpty { Text("当前来源未提供窗口额度") }
                         if value.accountChanged { Text("登录身份已变化，旧额度已清除。") }
                         if value.error != nil { Text(status(value)) }
@@ -169,7 +177,11 @@ struct SalaryAIQuotaSection: View {
                         Button("刷新演示数据") { demoDate = Date() }
                     }
                     if !demo && value.isConnected {
-                        Button("刷新") { Task { await connections.refresh(provider) } }
+                        Button("手动刷新") { Task { await connections.refresh(provider, manual: true) } }
+                            .disabled(value.isRefreshing || (value.error != nil && value.nextRefreshAt.map { $0 > now } == true))
+                        if value.error != nil, let retry = value.nextRefreshAt, retry > now {
+                            Text("等待重试至 \(retry.formatted(date: .omitted, time: .standard))")
+                        }
                         Button("断开") { connections.disconnect(provider); detail = nil }
                     }
                 }.font(.system(size: 12)).padding(16) }
@@ -196,8 +208,13 @@ struct SalaryAIQuotaSection: View {
         case .timedOut: return "查询超时 · 稍后重试"
         case .outputTooLarge: return "CLI 输出异常 · 已停止查询"
         case .cleanupFailed: return "子进程清理失败 · 已断开"
-        case .sourceChanged: return "CLI 来源已改变 · 请重新连接"
+        case .sourceChanged: return "登录来源已改变 · 请重新连接"
         case .rpcRejected: return "无法查询 · 请检查登录或 CLI 版本"
+        case .launchFailed: return "CLI 启动失败 · 请检查可执行文件"
+        case .pipeFailed: return "CLI 通信中断 · 已停止查询"
+        case .exitedNonzero(let code): return "CLI 异常退出（代码 \(code)）"
+        case .terminatedBySignal(let signal): return "CLI 被信号终止（信号 \(signal)）"
+        case .emptyOutput: return "CLI 未返回数据"
         case nil:
             if let snapshot = value.snapshot, snapshot.windows.isEmpty { return "当前来源未提供窗口额度" }
             return value.isConnected ? "等待额度数据 · 重置未知" : "未连接 · 重置未知"
@@ -211,10 +228,10 @@ struct SalaryAIQuotaSection: View {
 }
 
 @MainActor
-private struct AIQuotaConnectionPanel: View {
+struct AIQuotaConnectionPanel: View {
     @ObservedObject var connections: AIQuotaConnections
-    @State private var periodicCodex = false
-    @State private var periodicAGY = false
+    @State private var periodic: Set<AIQuotaProvider> = []
+    @State private var accepted: Set<AIQuotaProvider> = []
     @State private var message: String?
     @State private var connecting: AIQuotaProvider?
 
@@ -222,78 +239,128 @@ private struct AIQuotaConnectionPanel: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("AI 额度连接").font(.headline)
+                    Text("AI 额度连接 · 开发候选").font(.headline)
                     Spacer()
                     Button(connections.paused ? "恢复" : "暂停全部") { connections.setPaused(!connections.paused) }
                 }
-                Text("当前候选仅完成离线验收，真实 CLI 接入未验证。默认关闭。本次运行有效，退出应用后全部断开。不保存凭据或连接授权。隐私模式、AI 演示、锁屏、休眠、收起面板时暂停查询。")
-                connection(.codex, periodic: $periodicCodex)
-                Divider()
-                connection(.gemini, periodic: $periodicAGY)
-                Picker("Gemini 额度组", selection: Binding(get: { connections.geminiGroup }, set: { connections.setGeminiGroup($0) })) {
-                    Text("Gemini Models").tag("Gemini Models")
-                    Text("Argon Models（独立组，需 CLI 支持）").tag("Argon Models")
+                Text("Codex 和 Gemini 通过现有 CLI 查询。默认关闭，选择来源不会查询；勾选并连接后才允许本次访问。")
+                ForEach(AIQuotaConnections.availableProviders, id: \.self) { provider in
+                    connection(provider)
+                    Divider()
                 }
-                Text("仅显示上方名称完全匹配的额度组。Gemini Models、Argon、Claude/GPT 不合并；此处不是 Google 消费者订阅额度。")
-                Divider()
-                Text("GLM 5.3 · 未连接").fontWeight(.semibold)
-                Text("已具备套餐共享额度解析，但监控接口未公开，独立应用接入方式仍待确认。此版本不请求 GLM key。")
-                Text("登录身份未必随额度返回。切换 CLI 登录账户后请先断开再连接；仅在 Codex 返回 accountId 时检测身份变化，不显示原始 ID。")
-                Text("若系统沙盒阻止 CLI 读取它自己的登录状态，将显示查询失败；不会关闭沙盒、读取 token 或自动申请更大目录权限。")
+                Text("Gemini 仅显示 Antigravity 返回的 Gemini Models 额度组，不代表 Google 消费者订阅。")
+                Text("隐私模式、演示、锁屏、休眠、收起面板或暂停时停止查询；断开和退出撤销本次访问。切换登录来源后请断开再连接。")
+                Text("CLI 的接口或报告格式可能变化。查询失败时保留明确错误；遵循系统 TLS 校验与访问限制。")
                 if let message { Text(message).foregroundStyle(SalaryPalette.gold) }
             }.font(.system(size: 12)).padding(16)
-        }.frame(width: 430, height: 520)
+        }.frame(width: 460, height: 590)
             .background(Color.black.opacity(0.96))
             .preferredColorScheme(.dark)
-            .onAppear {
-                periodicCodex = connections.automatic.contains(.codex)
-                periodicAGY = connections.automatic.contains(.gemini)
-            }
     }
-    private func connection(_ provider: AIQuotaProvider, periodic: Binding<Bool>) -> some View {
+    private func binding(_ values: Binding<Set<AIQuotaProvider>>, _ provider: AIQuotaProvider) -> Binding<Bool> {
+        Binding(get: { values.wrappedValue.contains(provider) }, set: { enabled in
+            if enabled { values.wrappedValue.insert(provider) } else { values.wrappedValue.remove(provider) }
+        })
+    }
+    @ViewBuilder private func connection(_ provider: AIQuotaProvider) -> some View {
         let state = connections.store.state(for: provider)
-        return VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 7) {
             HStack {
                 Text(provider.title).fontWeight(.semibold)
                 Spacer()
                 Text(state.isConnected ? (state.snapshot == nil ? "已允许查询 · 暂无数据" : "已取得额度") : "未连接").foregroundStyle(.secondary)
             }
+            Text(sourceDescription(provider))
             if let selection = connections.selections[provider] {
-                Text(selection.url.path).font(.system(size: 10)).textSelection(.enabled).lineLimit(2)
+                Text("已选择：\(selection.url.lastPathComponent)").font(.system(size: 10))
             }
-            Button("选择可信的 \(provider == .codex ? "codex" : "agy") CLI…") { select(provider) }
-            if let selectionError = connections.selectionErrors[provider] {
-                Text(selectionError).foregroundStyle(SalaryPalette.gold)
+            if let file = connections.codenotchFiles[provider] {
+                Text("已选择：\(file.lastPathComponent)").font(.system(size: 10))
             }
-            Text(provider == .codex
-                 ? "同意后，仅运行 codex app-server 的只读限额方法，由 CLI 使用现有登录向 OpenAI 查询。"
-                 : "同意后，仅运行 agy --print /usage，由 CLI 使用现有登录向 Google 查询。不会提交模型推理任务。")
-            Toggle("面板展开时每 5 分钟刷新", isOn: periodic)
-                .disabled(state.isConnected)
+            if provider == .glm ? connections.codenotchFiles[provider] == nil : connections.selections[provider] == nil {
+                Text("默认来源：\(defaultSourceLabel(provider))").font(.system(size: 10))
+            }
+            Button(provider == .glm ? "更改 Claude Code 配置文件…" : "更改 \(provider == .gemini ? "agy" : "codex") 可执行文件…") {
+                if provider == .glm { selectGLM() } else { selectCLI(provider) }
+            }.disabled(connecting != nil)
+            Text(targetDescription(provider)).font(.system(size: 11))
+            if provider == .gemini {
+                Toggle("允许本次以现有 CLI 登录运行所选 agy 的 /usage 查询额度", isOn: binding($accepted, provider))
+                    .disabled(state.isConnected)
+            } else if provider == .codex {
+                Toggle("允许本次以现有 Codex CLI 登录查询额度", isOn: binding($accepted, provider))
+                    .disabled(state.isConnected)
+            } else {
+                Toggle("允许本次读取 Claude Code 智谱配置并向上述目标发送认证信息", isOn: binding($accepted, provider))
+                    .disabled(state.isConnected)
+            }
+            Toggle("每 5 分钟刷新，到期补查一次（面板展开时）", isOn: binding($periodic, provider)).disabled(state.isConnected)
             HStack {
                 Button(connecting == provider ? "连接中…" : "同意并连接（本次运行）") {
                     connecting = provider; message = nil
                     Task {
-                        do { try await connections.connect(provider, group: connections.geminiGroup, periodically: periodic.wrappedValue) }
-                        catch { message = "无法使用所选 CLI；请检查路径和访问权限。" }
+                        do {
+                            try connections.prepareDefaultSourceIfNeeded(provider, home: FileManager.default.homeDirectoryForCurrentUser)
+                            if provider == .glm {
+                                try await connections.connectCodenotch(.glm, periodically: periodic.contains(provider))
+                            } else {
+                                try await connections.connect(provider, group: connections.geminiGroup, periodically: periodic.contains(provider))
+                            }
+                        }
+                        catch DefaultQuotaSourceError.missing { message = "默认来源不存在，请使用“更改”选择正确文件。" }
+                        catch { message = "无法使用所选来源，请检查文件类型与访问权限。" }
                         connecting = nil
                     }
-                }
-                .disabled(connections.selections[provider] == nil || connecting != nil || state.isConnected)
-                Button("断开") { connections.disconnect(provider) }.disabled(!state.isConnected && connections.selections[provider] == nil)
+                }.disabled(!accepted.contains(provider) || connecting != nil || state.isConnected)
+                Button("断开") { connections.disconnect(provider); accepted.remove(provider); periodic.remove(provider) }
+                    .disabled(!state.isConnected && (provider == .glm ? connections.codenotchFiles[provider] == nil : connections.selections[provider] == nil))
             }
         }
     }
-    private func select(_ provider: AIQuotaProvider) {
+    private func defaultSourceLabel(_ provider: AIQuotaProvider) -> String {
+        switch provider {
+        case .codex: return "~/.local/bin/codex"
+        case .gemini: return "~/.local/bin/agy"
+        case .glm: return "~/.claude/settings.json"
+        }
+    }
+    private func sourceDescription(_ provider: AIQuotaProvider) -> String {
+        switch provider {
+        case .codex: return "Codex CLI 可执行文件；以现有登录读取账户额度。"
+        case .gemini: return "Antigravity CLI（agy）可执行文件；以现有 CLI 登录运行 /usage 查询额度，不读取 OAuth 凭据文件、钥匙串或 IDE 信息。"
+        case .glm: return "仅 Claude Code settings.json 的 GLM API 配置；不会读取或操作 Z Code。"
+        }
+    }
+    private func targetDescription(_ provider: AIQuotaProvider) -> String {
+        switch provider {
+        case .codex: return "本地运行 Codex app-server，仅通过标准输入输出查询额度；认证由 CLI 处理。"
+        case .gemini: return "本地运行所选 agy 的 /usage；认证与请求均由该 CLI 的现有登录完成，本应用不读取或发送凭据，不伪装官方客户端。"
+        case .glm: return "按所选 GLM 配置，仅发送至 api.z.ai 或 open.bigmodel.cn 的 /api/monitor/usage/quota/limit；这是未公开的监控接口。"
+        }
+    }
+    private func selectGLM() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = false; panel.canChooseFiles = true
         panel.allowsMultipleSelection = false; panel.prompt = "选择"
-        panel.message = "选择你已安装且信任的 \(provider == .codex ? "codex" : "agy") 可执行文件。选择本身不会查询账户。"
+        panel.message = "选择 Claude Code 智谱配置文件；选择本身不会读取或查询。"
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
-                do { try connections.select(provider, url: url); message = nil }
-                catch { message = "只接受名称匹配、可执行的本地 CLI 文件。未建立连接。" }
+                do { try connections.selectCodenotch(.glm, url: url); accepted.remove(.glm); message = nil }
+                catch { message = "无法选择此来源。未建立连接。" }
+            }
+        }
+    }
+    private func selectCLI(_ provider: AIQuotaProvider) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = false; panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false; panel.prompt = "选择"
+        panel.message = "选择对应 CLI 可执行文件。选择本身不会查询账户。"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                do { try connections.select(provider, url: url); accepted.remove(provider); message = nil }
+                catch { message = "无法选择此来源。未建立连接。" }
             }
         }
     }

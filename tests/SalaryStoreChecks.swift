@@ -320,6 +320,55 @@ import Foundation
         try Data("blocked".utf8).write(to: failGoalDir)
         do { try failGoals.saveMilestones([robot]); fatalError("goal write failure accepted") }
         catch { check(failGoals.data.milestones == beforeGoals, "failed goal save leaves prior mode and progress intact") }
+        // Storage policy fixtures stay wholly beneath this test's temporary root.
+        let storageStart = count
+        let support = root.appendingPathComponent("standalone/Library/Application Support", isDirectory: true)
+        let untouchedURL = support.appendingPathComponent("SalaryIsland/salary-v1.json")
+        try FileManager.default.createDirectory(at: untouchedURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        var fixtureData = SalaryData(); fixtureData.versions = [.init(effectiveDay: "2026-01-01", profile: profile)]
+        let legacyBytes = try JSONEncoder().encode(fixtureData)
+        try legacyBytes.write(to: untouchedURL)
+        let standaloneCandidate = SalaryStoragePolicy.resolve(applicationSupport: support, candidateBuild: true)
+        check(standaloneCandidate.blockedReason == nil && standaloneCandidate.url != untouchedURL, "candidate has explicit independent directory without sandbox")
+        check(standaloneCandidate.url.deletingLastPathComponent().lastPathComponent == SalaryStoragePolicy.candidateDirectory, "candidate directory independent of bundle ID")
+        check(!FileManager.default.fileExists(atPath: standaloneCandidate.url.deletingLastPathComponent().path), "policy resolution creates no directory")
+        let candidate = SalaryStore(storageURL: standaloneCandidate.url, storageBlockReason: standaloneCandidate.blockedReason, clock: { now }, startRuntime: false)
+        check(!candidate.configured, "candidate does not import standalone legacy salary")
+        try candidate.saveProfile(profile)
+        check(FileManager.default.fileExists(atPath: standaloneCandidate.url.path), "candidate writes only its explicit fixture path")
+        let afterCandidate = try Data(contentsOf: untouchedURL)
+        check(afterCandidate == legacyBytes, "candidate leaves old fixture bytes unchanged")
+        let blockedLocation = SalaryStoragePolicy.resolve(applicationSupport: support, candidateBuild: false)
+        check(blockedLocation.blockedReason == SalaryStoragePolicy.pathMismatch, "formal standalone path fails closed")
+        let blockedStore = SalaryStore(storageURL: blockedLocation.url, storageBlockReason: blockedLocation.blockedReason, clock: { now }, startRuntime: false)
+        check(!blockedStore.configured && blockedStore.snapshot == nil, "blocked path is not read even when valid salary exists")
+        check(blockedStore.errorMessage == SalaryStoragePolicy.pathMismatch, "blocked path presents explicit message")
+        blockedStore.tick()
+        check(!blockedStore.setPrivacy(true), "blocked path rejects preference writes")
+        do { try blockedStore.clearSalaryData(); fatalError("clear bypassed path guard") }
+        catch { check(blockedStore.errorMessage == SalaryStoragePolicy.pathMismatch, "reset recovery cannot bypass path guard") }
+        do { try blockedStore.saveProfile(profile); fatalError("profile bypassed path guard") }
+        catch { check(!blockedStore.configured, "blocked profile remains unconfigured") }
+        let afterBlocked = try Data(contentsOf: untouchedURL)
+        check(afterBlocked == legacyBytes, "blocked operations preserve old fixture bytes")
+        let absentSupport = root.appendingPathComponent("absent/Library/Application Support")
+        let absent = SalaryStoragePolicy.resolve(applicationSupport: absentSupport, candidateBuild: false)
+        let absentStore = SalaryStore(storageURL: absent.url, storageBlockReason: absent.blockedReason, clock: { now }, startRuntime: false)
+        do { try absentStore.clearSalaryData(); fatalError("blocked absent path created") }
+        catch { check(!FileManager.default.fileExists(atPath: absentSupport.path), "blocked path never creates a replacement directory") }
+        let containerSupport = root.appendingPathComponent("Library/Containers/local.salaryisland.preview/Data/Library/Application Support")
+        let formal = SalaryStoragePolicy.resolve(applicationSupport: containerSupport, candidateBuild: false)
+        check(formal.blockedReason == nil, "expected formal container shape allowed")
+        let formalStore = SalaryStore(storageURL: formal.url, storageBlockReason: formal.blockedReason, clock: { now }, startRuntime: false)
+        try formalStore.saveProfile(profile)
+        check(FileManager.default.fileExists(atPath: formal.url.path), "normal sandbox fixture storage still works")
+        let sandboxCandidate = SalaryStoragePolicy.resolve(applicationSupport: containerSupport, candidateBuild: true)
+        check(sandboxCandidate.url != formal.url && sandboxCandidate.url.deletingLastPathComponent().lastPathComponent == SalaryStoragePolicy.candidateDirectory, "candidate separate even with formal bundle container")
+        let wrongContainer = root.appendingPathComponent("Library/Containers/other.app/Data/Library/Application Support")
+        check(SalaryStoragePolicy.resolve(applicationSupport: wrongContainer, candidateBuild: false).blockedReason != nil, "other container rejected")
+        check(SalaryStoragePolicy.resolve(applicationSupport: nil, candidateBuild: true).blockedReason != nil, "missing system directory fails closed")
+        check(SalaryStoragePolicy.resolve(applicationSupport: URL(string: "https://example.invalid"), candidateBuild: false).blockedReason != nil, "non-file system directory rejected")
+        print("Storage path protection: \(count - storageStart) fixture assertions passed; no real salary paths accessed")
         print("\n\(count) store checks passed.")
     }
 }

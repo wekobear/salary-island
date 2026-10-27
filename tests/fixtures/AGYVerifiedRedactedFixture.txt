@@ -1,0 +1,5 @@
+Gemini Models	Weekly Limit Remaining	50%	2028-03-14T09:30:00Z
+Gemini Models	Five Hour Limit Remaining	50%	2028-03-14T09:30:00Z
+Claude and GPT models	Weekly Limit Remaining	50%	2028-03-14T09:30:00Z
+Claude and GPT models	Five Hour Limit Remaining	50%	2028-03-14T09:30:00Z
+Gemini 7 Argon	Gemini 7 Argon Weekly Limit	50%	2028-03-14T09:30:00Z

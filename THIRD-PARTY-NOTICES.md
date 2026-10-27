@@ -15,3 +15,7 @@ Codex 协议依据 [官方 app-server 文档](https://developers.openai.com/code
 GLM 5.3 通过用户既有 Claude Code CLI headless 参与纯解析器草稿；Codex 修订重置时间可空、数值边界与错误信封优先处理，并编写验证。既有钱包艺术保留，本轮不新增生成图片或伪造平台商标。
 
 第二阶段 AGY 纯文本适配器另参考同一固定 commit 的 `windows/codenotch/src/agy_cli.rs` 中公开 `/usage` 命令参数、报表标签及样例；Mac stdio 生命周期、Swift 严格解析与时区验证自行编写，未移植 Windows ConPTY 或认证代码。随附 [codenotch MIT 许可](docs/licenses/codenotch-MIT.txt)。官方命令说明：[headless](https://antigravity.google/docs/cli/headless)、[/usage](https://antigravity.google/docs/cli/commands/usage)。
+
+## 真实 provider 移植候选（2026-10-27，尚未发布）
+
+后续候选直接移植同一 MIT 提交的 Codex、GLM、Antigravity 凭据纯解析、quota 解析、固定服务请求与 UsageStore 刷新判定；新文件位于 `boringNotch/Salary/Codenotch/`，保留作者署名与 MIT 许可。完整文件对应、修改声明与原文件 SHA-256 见 [PORTING.md](boringNotch/Salary/Codenotch/PORTING.md)。没有移植无关窗口引擎、聊天/活动读取、TLS 信任例外、客户端伪装或 Z Code 读取。真实配置与账户请求尚未执行，不将这些未公开服务路径称为正式公开 API。

@@ -135,7 +135,8 @@ final class QuotaCLIProcess: @unchecked Sendable {
                         self.resolveExit()
                     }
                 }
-                try self.process.run()
+                do { try self.process.run() }
+                catch { self.requestFinish(.failure(AIQuotaError.launchFailed)); return }
                 self.launched = true
                 try? self.output.fileHandleForWriting.close()
                 try? self.errors.fileHandleForWriting.close()
@@ -146,7 +147,7 @@ final class QuotaCLIProcess: @unchecked Sendable {
                 let timeout = DispatchWorkItem { [weak self] in self?.requestFinish(.failure(AIQuotaError.timedOut)) }
                 self.deadline = timeout
                 self.queue.asyncAfter(deadline: .now() + self.policy.timeout, execute: timeout)
-            } catch { self.requestFinish(.failure(AIQuotaError.unavailable)) }
+            } catch { self.requestFinish(.failure((error as? AIQuotaError) ?? .unavailable)) }
         }
     }
     private func makeReader(_ handle: FileHandle, stderr: Bool) -> DispatchSourceRead {
@@ -171,7 +172,7 @@ final class QuotaCLIProcess: @unchecked Sendable {
             }
             if count < 0 {
                 if errno == EAGAIN || errno == EINTR { return }
-                requestFinish(.failure(AIQuotaError.unavailable)); return
+                requestFinish(.failure(AIQuotaError.pipeFailed)); return
             }
             if stderr {
                 stderrBytes += count
@@ -190,10 +191,10 @@ final class QuotaCLIProcess: @unchecked Sendable {
     private func write(_ data: Data) throws {
         let written = try data.withUnsafeBytes { raw -> Int in
             let count = Darwin.write(input.fileHandleForWriting.fileDescriptor, raw.baseAddress, raw.count)
-            if count < 0 { throw AIQuotaError.unavailable }
+            if count < 0 { throw AIQuotaError.pipeFailed }
             return count
         }
-        guard written == data.count else { throw AIQuotaError.unavailable }
+        guard written == data.count else { throw AIQuotaError.pipeFailed }
     }
     private func consumeRPC() {
         while let newline = buffer.firstIndex(of: 10) {
@@ -216,8 +217,14 @@ final class QuotaCLIProcess: @unchecked Sendable {
             buffer.append(10); consumeRPC()
             if outcome != nil { return }
         }
-        if command == .agy && process.terminationStatus == 0 && !buffer.isEmpty {
+        if command == .agy, !buffer.isEmpty, process.terminationReason == .exit, process.terminationStatus == 0 {
             requestFinish(.success(buffer))
+        } else if process.terminationReason == .uncaughtSignal {
+            requestFinish(.failure(AIQuotaError.terminatedBySignal(process.terminationStatus)))
+        } else if process.terminationStatus != 0 {
+            requestFinish(.failure(AIQuotaError.exitedNonzero(process.terminationStatus)))
+        } else if stdoutBytes == 0 {
+            requestFinish(.failure(AIQuotaError.emptyOutput))
         } else { requestFinish(.failure(AIQuotaError.unavailable)) }
     }
     func cancel() {

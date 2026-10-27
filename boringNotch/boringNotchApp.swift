@@ -65,9 +65,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var screenLockedObserver: Any?
     private var screenUnlockedObserver: Any?
     private var isScreenLocked: Bool = false
+    private var isTerminatePending = false
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
+    }
+
+    /// Normal quit path: return .terminateLater, suspend (never block the main
+    /// thread) until owned child cleanup finishes, then confirm termination.
+    /// A repeated terminate request while one is pending waits on the same
+    /// in-flight reply instead of starting a second shutdown or replying twice.
+    /// applicationWillTerminate below remains the unawaited fallback.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !isTerminatePending else { return .terminateLater }
+        isTerminatePending = true
+        Task { @MainActor in
+            await AIQuotaConnections.shared.shutdownAndWait()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     func applicationWillTerminate(_ notification: Notification) {

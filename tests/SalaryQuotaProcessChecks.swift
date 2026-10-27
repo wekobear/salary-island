@@ -47,6 +47,25 @@ import Darwin
         let agyData = try await QuotaCLIProcess.run(executableURL: agyURL, command: .agy, policy: policy)
         precondition(String(data: agyData, encoding: .utf8)?.hasPrefix("Quota:") == true)
         try noOrphan(agyURL); cases += 1
+        let missingURL = root.appendingPathComponent("missing-launch").appendingPathComponent("codex")
+        do { _ = try await QuotaCLIProcess.run(executableURL: missingURL, command: .codex, policy: policy); fatalError("expected launch failure") }
+        catch let error as AIQuotaError { precondition(error == .launchFailed, "missing-launch: \(error)") }
+        cases += 1
+        // Sanitized categories with numeric exit/signal only. The epipe case is deterministic:
+        // the fixture closes stdin before replying, so the parent's follow-up write must hit EPIPE.
+        // Read-side pipe errors cannot be produced deterministically without a test seam.
+        let classified: [(mode: String, binary: String, command: QuotaCLICommand, expected: AIQuotaError)] = [
+            ("agy-empty-stdout", "agy", .agy, .emptyOutput),
+            ("agy-exit37", "agy", .agy, .exitedNonzero(37)),
+            ("agy-selfsignal", "agy", .agy, .terminatedBySignal(SIGTERM)),
+            ("epipe", "codex", .codex, .pipeFailed),
+        ]
+        for scenario in classified {
+            let url = try setup(scenario.mode, binary: scenario.binary)
+            do { _ = try await QuotaCLIProcess.run(executableURL: url, command: scenario.command, policy: policy); fatalError("expected \(scenario.mode) failure") }
+            catch let error as AIQuotaError { precondition(error == scenario.expected, "\(scenario.mode): \(error)") }
+            try noOrphan(url); cases += 1
+        }
         print("SalaryQuotaProcessChecks: \(cases) scenarios passed; every launched fake PID confirmed ESRCH before return")
     }
 }

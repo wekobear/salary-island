@@ -31,9 +31,48 @@ struct SalaryToast: Identifiable, Equatable {
     var isDemo: Bool
 }
 
+/// Pure path policy; resolving a location never reads, creates, or migrates files.
+struct SalaryStorageLocation {
+    let url: URL
+    let blockedReason: String?
+}
+
+enum SalaryStoragePolicy {
+    static let candidateDirectory = "SalaryIsland-AI-Candidate-20261027"
+    static let pathMismatch = "薪酬数据目录与当前版本不匹配，已停止读写。不会自动新建、迁移或覆盖旧数据。请恢复原版本，或等待经过确认的数据路径修复。"
+
+    static func resolve(applicationSupport: URL?, candidateBuild: Bool) -> SalaryStorageLocation {
+        guard let applicationSupport, applicationSupport.isFileURL else {
+            return SalaryStorageLocation(url: URL(fileURLWithPath: "/__SalaryIsland_storage_unavailable__/salary-v1.json"),
+                                         blockedReason: pathMismatch)
+        }
+        let base = applicationSupport.standardizedFileURL
+        if candidateBuild {
+            // The separate directory remains distinct even if App Sandbox or
+            // bundle identity changes. Never fall back to the user's SalaryIsland.
+            return SalaryStorageLocation(url: base.appendingPathComponent(candidateDirectory, isDirectory: true)
+                .appendingPathComponent("salary-v1.json"), blockedReason: nil)
+        }
+        let expected = ["Library", "Containers", "local.salaryisland.preview", "Data", "Library", "Application Support"]
+        let matches = Array(base.pathComponents.suffix(expected.count)) == expected
+        return SalaryStorageLocation(url: base.appendingPathComponent("SalaryIsland", isDirectory: true)
+            .appendingPathComponent("salary-v1.json"), blockedReason: matches ? nil : pathMismatch)
+    }
+}
+
 @MainActor
 final class SalaryStore: ObservableObject {
-    static let shared = SalaryStore()
+    static let shared: SalaryStore = {
+        #if DEBUG
+        let candidateBuild = true
+        #else
+        let candidateBuild = false
+        #endif
+        let location = SalaryStoragePolicy.resolve(
+            applicationSupport: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first,
+            candidateBuild: candidateBuild)
+        return SalaryStore(storageURL: location.url, storageBlockReason: location.blockedReason)
+    }()
     @Published private(set) var data = SalaryData()
     @Published private(set) var now = Date()
     @Published private(set) var snapshot: SalarySnapshot?
@@ -61,6 +100,7 @@ final class SalaryStore: ObservableObject {
     private var demoLedger: SalaryDayLedger?
     private var preparedGoalDay: String?
     private var loadFailed = false
+    private let storageBlockReason: String?
     private let clock: () -> Date
     let storageURL: URL
 
@@ -117,10 +157,16 @@ final class SalaryStore: ObservableObject {
     }
     var amountText: String { privacy ? "¥•••" : SalaryEngine.formatYuan(cents: earnedCents) }
 
-    init(storageURL: URL? = nil, clock: @escaping () -> Date = Date.init, startRuntime: Bool = true) {
+    init(storageURL: URL, storageBlockReason: String? = nil,
+         clock: @escaping () -> Date = Date.init, startRuntime: Bool = true) {
         self.clock = clock
-        self.storageURL = storageURL ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("SalaryIsland", isDirectory: true).appendingPathComponent("salary-v1.json")
+        self.storageURL = storageURL
+        self.storageBlockReason = storageBlockReason
+        if let storageBlockReason {
+            loadFailed = true
+            errorMessage = storageBlockReason
+            return // Before fileExists/read, observers, timers, or any write.
+        }
         if FileManager.default.fileExists(atPath: self.storageURL.path) {
             do {
                 var loaded = try JSONDecoder().decode(SalaryData.self, from: Data(contentsOf: self.storageURL))
@@ -492,6 +538,11 @@ final class SalaryStore: ObservableObject {
     }
 
     private func commit(_ candidate: SalaryData, allowRecovery: Bool = false) throws {
+        // The existing data-reset recovery action must not bypass a path mismatch.
+        if let storageBlockReason {
+            errorMessage = storageBlockReason
+            throw SalaryStoreError(storageBlockReason)
+        }
         guard !loadFailed || allowRecovery else {
             throw SalaryStoreError("本地薪酬记录无法读取，已保留原文件；本次修改未保存。")
         }

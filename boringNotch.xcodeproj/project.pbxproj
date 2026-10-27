@@ -7,6 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		ACDE00000000000000000001 /* AntigravityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD00000000000000000001; };
+		ACDE00000000000000000002 /* AntigravityCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD00000000000000000002; };
+		ACDE00000000000000000003 /* AntigravityProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD00000000000000000003; };
+		ACDE00000000000000000004 /* AntigravityQuotaParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD00000000000000000004; };
+		ACDE00000000000000000005 /* CodenotchTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD00000000000000000005; };
+		ACDE00000000000000000006 /* CodexCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD00000000000000000006; };
+		ACDE00000000000000000007 /* CodexLocalProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD00000000000000000007; };
+		ACDE00000000000000000008 /* CodexUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD00000000000000000008; };
+		ACDE00000000000000000009 /* CredentialAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD00000000000000000009; };
+		ACDE0000000000000000000A /* GLMCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD0000000000000000000A; };
+		ACDE0000000000000000000B /* GLMProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD0000000000000000000B; };
+		ACDE0000000000000000000C /* GLMUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD0000000000000000000C; };
+		ACDE0000000000000000000D /* QuotaHTTPTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD0000000000000000000D; };
+		ACDE0000000000000000000E /* UsagePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDD0000000000000000000E; };
 		ABCE00000000000000000008 /* SalaryAIQuota.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000008; };
 		ABCE00000000000000000009 /* SalaryAIQuotaStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000009; };
 		ABCE0000000000000000000B /* SalaryCodexQuotaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD0000000000000000000B; };
@@ -195,6 +209,20 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		ACDD00000000000000000001 /* AntigravityBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/AntigravityBridge.swift; sourceTree = "<group>"; };
+		ACDD00000000000000000002 /* AntigravityCredentials.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/AntigravityCredentials.swift; sourceTree = "<group>"; };
+		ACDD00000000000000000003 /* AntigravityProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/AntigravityProvider.swift; sourceTree = "<group>"; };
+		ACDD00000000000000000004 /* AntigravityQuotaParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/AntigravityQuotaParser.swift; sourceTree = "<group>"; };
+		ACDD00000000000000000005 /* CodenotchTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/CodenotchTypes.swift; sourceTree = "<group>"; };
+		ACDD00000000000000000006 /* CodexCredentials.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/CodexCredentials.swift; sourceTree = "<group>"; };
+		ACDD00000000000000000007 /* CodexLocalProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/CodexLocalProvider.swift; sourceTree = "<group>"; };
+		ACDD00000000000000000008 /* CodexUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/CodexUsage.swift; sourceTree = "<group>"; };
+		ACDD00000000000000000009 /* CredentialAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/CredentialAccess.swift; sourceTree = "<group>"; };
+		ACDD0000000000000000000A /* GLMCredentials.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/GLMCredentials.swift; sourceTree = "<group>"; };
+		ACDD0000000000000000000B /* GLMProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/GLMProvider.swift; sourceTree = "<group>"; };
+		ACDD0000000000000000000C /* GLMUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/GLMUsage.swift; sourceTree = "<group>"; };
+		ACDD0000000000000000000D /* QuotaHTTPTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/QuotaHTTPTransport.swift; sourceTree = "<group>"; };
+		ACDD0000000000000000000E /* UsagePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/Codenotch/UsagePolicy.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000008 /* SalaryAIQuota.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryAIQuota.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000009 /* SalaryAIQuotaStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryAIQuotaStore.swift; sourceTree = "<group>"; };
 		ABCD0000000000000000000B /* SalaryCodexQuotaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryCodexQuotaClient.swift; sourceTree = "<group>"; };
@@ -597,6 +625,20 @@
 				ABCD00000000000000000008 /* SalaryAIQuota.swift */,
 				ABCD00000000000000000009 /* SalaryAIQuotaStore.swift */,
 				ABCD0000000000000000000B /* SalaryCodexQuotaClient.swift */,
+				ACDD00000000000000000001 /* AntigravityBridge.swift */,
+				ACDD00000000000000000002 /* AntigravityCredentials.swift */,
+				ACDD00000000000000000003 /* AntigravityProvider.swift */,
+				ACDD00000000000000000004 /* AntigravityQuotaParser.swift */,
+				ACDD00000000000000000005 /* CodenotchTypes.swift */,
+				ACDD00000000000000000006 /* CodexCredentials.swift */,
+				ACDD00000000000000000007 /* CodexLocalProvider.swift */,
+				ACDD00000000000000000008 /* CodexUsage.swift */,
+				ACDD00000000000000000009 /* CredentialAccess.swift */,
+				ACDD0000000000000000000A /* GLMCredentials.swift */,
+				ACDD0000000000000000000B /* GLMProvider.swift */,
+				ACDD0000000000000000000C /* GLMUsage.swift */,
+				ACDD0000000000000000000D /* QuotaHTTPTransport.swift */,
+				ACDD0000000000000000000E /* UsagePolicy.swift */,
 				ABCD0000000000000000000D /* SalaryAIQuotaConnections.swift */,
 				ABCD0000000000000000000C /* SalaryAGYQuotaClient.swift */,
 				ABCD0000000000000000000A /* SalaryAIQuotaSection.swift */,
@@ -1036,6 +1078,20 @@
 				ABCE00000000000000000008 /* SalaryAIQuota.swift in Sources */,
 				ABCE00000000000000000009 /* SalaryAIQuotaStore.swift in Sources */,
 				ABCE0000000000000000000B /* SalaryCodexQuotaClient.swift in Sources */,
+				ACDE00000000000000000001 /* AntigravityBridge.swift in Sources */,
+				ACDE00000000000000000002 /* AntigravityCredentials.swift in Sources */,
+				ACDE00000000000000000003 /* AntigravityProvider.swift in Sources */,
+				ACDE00000000000000000004 /* AntigravityQuotaParser.swift in Sources */,
+				ACDE00000000000000000005 /* CodenotchTypes.swift in Sources */,
+				ACDE00000000000000000006 /* CodexCredentials.swift in Sources */,
+				ACDE00000000000000000007 /* CodexLocalProvider.swift in Sources */,
+				ACDE00000000000000000008 /* CodexUsage.swift in Sources */,
+				ACDE00000000000000000009 /* CredentialAccess.swift in Sources */,
+				ACDE0000000000000000000A /* GLMCredentials.swift in Sources */,
+				ACDE0000000000000000000B /* GLMProvider.swift in Sources */,
+				ACDE0000000000000000000C /* GLMUsage.swift in Sources */,
+				ACDE0000000000000000000D /* QuotaHTTPTransport.swift in Sources */,
+				ACDE0000000000000000000E /* UsagePolicy.swift in Sources */,
 				ABCE0000000000000000000D /* SalaryAIQuotaConnections.swift in Sources */,
 				ABCE0000000000000000000C /* SalaryAGYQuotaClient.swift in Sources */,
 				ABCE0000000000000000000A /* SalaryAIQuotaSection.swift in Sources */,

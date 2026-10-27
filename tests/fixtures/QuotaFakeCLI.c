@@ -20,11 +20,15 @@ int main(int argc, char **argv) {
         if(argc!=6 || strcmp(argv[1],"--sandbox") || strcmp(argv[2],"--print-timeout") || strcmp(argv[3],"20s") || strcmp(argv[4],"--print") || strcmp(argv[5],"/usage")) {
             return 14;
         }
+        if(strstr(dir,"exit37")) return 37;
+        if(strstr(dir,"selfsignal")) raise(SIGTERM);
+        if(strstr(dir,"empty")) return 0;
         puts("Quota:\nGemini Models Weekly Limit Remaining 75% 2027-01-15T08:00:00Z\nGemini Models Five Hour Limit Remaining 60% 2027-01-10T08:00:00Z\nArgon Models Weekly Limit Remaining 20% 2027-01-15T08:00:00Z");
         fflush(stdout);return 0;
     }
     char line[4096];
     if(!fgets(line,sizeof(line),stdin)||!strstr(line,"\"method\":\"initialize\""))return 11;
+    if(strstr(dir,"epipe")){ close(0); puts("{\"id\":1,\"result\":{\"userAgent\":\"fixture\"}}");fflush(stdout); for(;;)pause(); }
     puts("{\"id\":1,\"result\":{\"userAgent\":\"fixture\"}}");fflush(stdout);
     if(!fgets(line,sizeof(line),stdin)||!strstr(line,"initialized"))return 12;
     if(!fgets(line,sizeof(line),stdin)||!strstr(line,"account/rateLimits/read"))return 13;

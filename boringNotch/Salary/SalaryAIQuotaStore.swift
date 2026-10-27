@@ -50,7 +50,10 @@ final class AIQuotaStore: ObservableObject {
     @Published private(set) var cards: [AIQuotaProvider: AIQuotaCardState] = [:]
     private var readers: [AIQuotaProvider: Reader] = [:]
     private var tasks: [AIQuotaProvider: Task<Void, Never>] = [:]
+    // Includes cancelled tasks until their readers finish child-process cleanup.
+    private var outstandingTasks: [UUID: Task<Void, Never>] = [:]
     private var generations: [AIQuotaProvider: UUID] = [:]
+    private var lastAttempts: [AIQuotaProvider: Date] = [:]
     private var failures: [AIQuotaProvider: Int] = [:]
     private let now: () -> Date
     private(set) var isSuspended = true
@@ -60,6 +63,7 @@ final class AIQuotaStore: ObservableObject {
         self.refreshInterval = max(300, refreshInterval)
         self.now = now
     }
+    deinit { tasks.values.forEach { $0.cancel() } }
     func state(for provider: AIQuotaProvider) -> AIQuotaCardState { cards[provider] ?? AIQuotaCardState() }
 
     /// Called only after the application has obtained explicit source-specific consent.
@@ -74,10 +78,12 @@ final class AIQuotaStore: ObservableObject {
         cancel(provider)
         readers[provider] = nil
         failures[provider] = nil
+        lastAttempts[provider] = nil
         cards[provider] = AIQuotaCardState()
     }
     private func cancel(_ provider: AIQuotaProvider) {
         generations[provider] = UUID()
+        if cards[provider]?.nextRefreshAt == nil { lastAttempts[provider] = nil }
         tasks.removeValue(forKey: provider)?.cancel()
         if cards[provider] != nil { cards[provider]?.isRefreshing = false }
     }
@@ -85,14 +91,37 @@ final class AIQuotaStore: ObservableObject {
         isSuspended = suspended
         if suspended { AIQuotaProvider.allCases.forEach { cancel($0) } }
     }
-    func refresh(_ provider: AIQuotaProvider) async {
+
+    /// Keep cancelled-but-draining tasks until reader cleanup has finished.
+    /// Suspension is set before the first await, preventing new reads.
+    func shutdownTasksAndWait() async {
+        isSuspended = true
+        AIQuotaProvider.allCases.forEach { cancel($0) }
+        let captured = Array(outstandingTasks.values)
+        captured.forEach { $0.cancel() }
+        for task in captured { await task.value }
+    }
+    func refresh(_ provider: AIQuotaProvider, manual: Bool = false) async {
         guard !isSuspended, let reader = readers[provider], let account = cards[provider]?.accountID else { return }
         if let existing = tasks[provider] { await existing.value; return }
-        if let next = cards[provider]?.nextRefreshAt, now() < next { return }
+        let instant = now()
+        // Crossing a known reset can request one supplemental read. Advancing
+        // lastAttempts before starting coalesces windows and prevents repeated
+        // reads of the same expired reset returned by a stale server response.
+        let due = CNUsagePolicy.hasWindowRolledOver(in: cards[provider]?.snapshot.map { [$0] } ?? [], since: lastAttempts[provider], at: instant)
+        if let next = cards[provider]?.nextRefreshAt, instant < next {
+            // Neither manual actions nor reset events may bypass error backoff.
+            if cards[provider]?.error != nil || (!manual && !due) { return }
+        }
+        guard manual || CNUsagePolicy.shouldRefresh(isBusy: false,
+            sinceLastAttempt: lastAttempts[provider].map { instant.timeIntervalSince($0) } ?? .greatestFiniteMagnitude,
+            idleInterval: refreshInterval, resetDue: due) else { return }
+        lastAttempts[provider] = instant
         let generation = UUID()
         generations[provider] = generation
         cards[provider]?.isRefreshing = true
         let task = Task { [weak self] in
+            defer { self?.outstandingTasks[generation] = nil }
             do {
                 let snapshot = try await reader()
                 guard let self, self.generations[provider] == generation, !Task.isCancelled else { return }
@@ -111,6 +140,7 @@ final class AIQuotaStore: ObservableObject {
                 guard let self, self.generations[provider] == generation, !Task.isCancelled else { return }
                 if error is CancellationError {
                     // Cancellation is not an offline/error state and does not discard valid data.
+                    if self.cards[provider]?.nextRefreshAt == nil { self.lastAttempts[provider] = nil }
                 } else {
                     let failure: AIQuotaReadFailure
                     if let value = error as? AIQuotaReadFailure { failure = value }
@@ -123,7 +153,7 @@ final class AIQuotaStore: ObservableObject {
                     self.failures[provider] = count
                     let base = failure.error == .rateLimited ? 900.0 : 300.0
                     let backoff = min(3600, base * pow(2, Double(count - 1)))
-                    let requested = failure.retryAfter.flatMap { $0.isFinite && $0 > 0 ? $0 : nil } ?? 0
+                    let requested = failure.retryAfter.flatMap { $0.isFinite && $0 > 0 && $0 <= 604800 ? $0 : nil } ?? 0
                     self.cards[provider]?.nextRefreshAt = self.now().addingTimeInterval(max(backoff, requested))
                     if [.unauthorized, .cleanupFailed, .sourceChanged, .rpcRejected, .outputTooLarge].contains(failure.error) {
                         // Reauthorization must explicitly replace the reader; no retry loop with expired credentials.
@@ -138,6 +168,7 @@ final class AIQuotaStore: ObservableObject {
             self.tasks[provider] = nil
         }
         tasks[provider] = task
+        outstandingTasks[generation] = task
         await task.value
     }
 }

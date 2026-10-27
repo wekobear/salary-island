@@ -37,6 +37,7 @@ struct SalaryCompactView: View {
 
 struct SalaryDashboardView: View {
     @ObservedObject private var store: SalaryStore
+    @ObservedObject private var quotaConnections = AIQuotaConnections.shared
     init(store: SalaryStore? = nil) { self.store = store ?? .shared }
     @State private var showReference = false
     @State private var showAllMilestones = false
@@ -98,7 +99,11 @@ struct SalaryDashboardView: View {
                     milestoneRow
                 }
             }
-            SalaryAIQuotaSection(privacy: store.privacy)
+            #if DEBUG
+            if !store.isDemo && !quotaConnections.visibleProviders.isEmpty {
+                SalaryAIQuotaSection(privacy: store.privacy)
+            }
+            #endif
             footer
         }
         .padding(.horizontal, 6).padding(.top, 4)
