@@ -1,5 +1,7 @@
 # 薪动日常 · v0.1.8 开发版
 
+> 2026-10-27 AI 额度独立候选：新增 Codex / Gemini / GLM 5.3 面板；本轮仅验收模拟数据、离线解析与刷新状态，三家真实账户未连接。Release 可主动开启明确标识的演示，真实连接操作不开放。本分支改用 `local.salaryisland.ai-review.20261027`，不沿用旧安装数据。构建与限制见 [候选验收记录](docs/AI-QUOTA-REVIEW-2026-10-27.md)，新测试入口 `bash scripts/check-ai-quota.sh`。
+
 把上班的每一秒，换算成生活里的一点甜。
 
 macOS 灵动岛薪酬工具，提供下班倒计时、实时收入估算和每日／跨天累计目标。开源信息见 [许可与声明](THIRD-PARTY-NOTICES.md)。

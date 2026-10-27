@@ -98,6 +98,7 @@ struct SalaryDashboardView: View {
                     milestoneRow
                 }
             }
+            SalaryAIQuotaSection(privacy: store.privacy)
             footer
         }
         .padding(.horizontal, 6).padding(.top, 4)
@@ -191,7 +192,7 @@ struct SalaryDashboardView: View {
                         }
                 }.font(.system(size: 10))
                 HStack(spacing: 8) {
-                    ForEach(Array((pending + achieved.reversed()).prefix(3))) { item in milestoneCard(item) }
+                    ForEach(Array((pending + achieved.reversed()).prefix(2))) { item in milestoneCard(item) }
                 }
             }
         }.frame(height: 78)

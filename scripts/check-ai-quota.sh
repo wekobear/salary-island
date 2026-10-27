@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+TMP_CHECKS="$(mktemp -d "${TMPDIR:-/tmp}/salary-ai-checks.XXXXXX")"
+trap 'rm -rf "$TMP_CHECKS"' EXIT
+swiftc -module-cache-path "$TMP_CHECKS/modules" boringNotch/Salary/SalaryAIQuota.swift boringNotch/Salary/SalaryCodexQuotaClient.swift tests/SalaryAIQuotaChecks.swift -o "$TMP_CHECKS/parsers"
+"$TMP_CHECKS/parsers"
+swiftc -module-cache-path "$TMP_CHECKS/modules" boringNotch/Salary/SalaryAIQuota.swift boringNotch/Salary/SalaryAIQuotaStore.swift tests/SalaryAIQuotaStoreChecks.swift -o "$TMP_CHECKS/store"
+"$TMP_CHECKS/store"
+swiftc -module-cache-path "$TMP_CHECKS/modules" boringNotch/Salary/SalaryAIQuota.swift boringNotch/Salary/SalaryCodexQuotaClient.swift tests/SalaryCodexQuotaClientChecks.swift -o "$TMP_CHECKS/client"
+"$TMP_CHECKS/client"
+clang tests/fixtures/QuotaFakeCLI.c -o "$TMP_CHECKS/fake-cli"
+swiftc -module-cache-path "$TMP_CHECKS/modules" boringNotch/Salary/SalaryAIQuota.swift boringNotch/Salary/SalaryCodexQuotaClient.swift tests/SalaryQuotaProcessChecks.swift -o "$TMP_CHECKS/process"
+"$TMP_CHECKS/process" "$TMP_CHECKS/fake-cli"
+swiftc -module-cache-path "$TMP_CHECKS/modules" boringNotch/Salary/SalaryAIQuota.swift boringNotch/Salary/SalaryCodexQuotaClient.swift boringNotch/Salary/SalaryAGYQuotaClient.swift tests/SalaryAGYUsageChecks.swift -o "$TMP_CHECKS/agy"
+"$TMP_CHECKS/agy"
+swiftc -module-cache-path "$TMP_CHECKS/modules" boringNotch/Salary/SalaryAIQuota.swift boringNotch/Salary/SalaryAIQuotaStore.swift boringNotch/Salary/SalaryCodexQuotaClient.swift boringNotch/Salary/SalaryAGYQuotaClient.swift boringNotch/Salary/SalaryAIQuotaConnections.swift tests/SalaryQuotaConnectionChecks.swift -o "$TMP_CHECKS/connections"
+"$TMP_CHECKS/connections" "$TMP_CHECKS/fake-cli"
+swiftc -module-cache-path "$TMP_CHECKS/modules" boringNotch/Salary/SalaryAIQuota.swift boringNotch/Salary/SalaryAIQuotaStore.swift tests/SalaryQuotaAcceptanceChecks.swift -o "$TMP_CHECKS/acceptance"
+"$TMP_CHECKS/acceptance"

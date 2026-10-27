@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		ABCE00000000000000000008 /* SalaryAIQuota.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000008; };
+		ABCE00000000000000000009 /* SalaryAIQuotaStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000009; };
+		ABCE0000000000000000000B /* SalaryCodexQuotaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD0000000000000000000B; };
+		ABCE0000000000000000000D /* SalaryAIQuotaConnections.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD0000000000000000000D; };
+		ABCE0000000000000000000C /* SalaryAGYQuotaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD0000000000000000000C; };
+		ABCE0000000000000000000A /* SalaryAIQuotaSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD0000000000000000000A; };
 		1100290C2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */; };
 		110029272E84FD4C00035A57 /* TemporaryFileStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110029262E84FD4C00035A57 /* TemporaryFileStorageService.swift */; };
 		1100292A2E8691B400035A57 /* FileShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110029292E8691B400035A57 /* FileShareView.swift */; };
@@ -189,6 +195,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		ABCD00000000000000000008 /* SalaryAIQuota.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryAIQuota.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000009 /* SalaryAIQuotaStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryAIQuotaStore.swift; sourceTree = "<group>"; };
+		ABCD0000000000000000000B /* SalaryCodexQuotaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryCodexQuotaClient.swift; sourceTree = "<group>"; };
+		ABCD0000000000000000000D /* SalaryAIQuotaConnections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryAIQuotaConnections.swift; sourceTree = "<group>"; };
+		ABCD0000000000000000000C /* SalaryAGYQuotaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryAGYQuotaClient.swift; sourceTree = "<group>"; };
+		ABCD0000000000000000000A /* SalaryAIQuotaSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Salary/SalaryAIQuotaSection.swift; sourceTree = "<group>"; };
 		1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSItemProvider+LoadHelpers.swift"; sourceTree = "<group>"; };
 		110029262E84FD4C00035A57 /* TemporaryFileStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryFileStorageService.swift; sourceTree = "<group>"; };
 		110029292E8691B400035A57 /* FileShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileShareView.swift; sourceTree = "<group>"; };
@@ -582,6 +594,12 @@
 				ABCD00000000000000000007 /* SalaryWalletView.swift */,
 				ABCD00000000000000000004 /* SalarySettingsView.swift */,
 				ABCD00000000000000000003 /* SalaryViews.swift */,
+				ABCD00000000000000000008 /* SalaryAIQuota.swift */,
+				ABCD00000000000000000009 /* SalaryAIQuotaStore.swift */,
+				ABCD0000000000000000000B /* SalaryCodexQuotaClient.swift */,
+				ABCD0000000000000000000D /* SalaryAIQuotaConnections.swift */,
+				ABCD0000000000000000000C /* SalaryAGYQuotaClient.swift */,
+				ABCD0000000000000000000A /* SalaryAIQuotaSection.swift */,
 				ABCD00000000000000000002 /* SalaryStore.swift */,
 				ABCD00000000000000000001 /* SalaryFeedback.swift */,
 				ABCD00000000000000000000 /* SalaryCore.swift */,
@@ -1015,6 +1033,12 @@
 				ABCE00000000000000000007 /* SalaryWalletView.swift in Sources */,
 				ABCE00000000000000000004 /* SalarySettingsView.swift in Sources */,
 				ABCE00000000000000000003 /* SalaryViews.swift in Sources */,
+				ABCE00000000000000000008 /* SalaryAIQuota.swift in Sources */,
+				ABCE00000000000000000009 /* SalaryAIQuotaStore.swift in Sources */,
+				ABCE0000000000000000000B /* SalaryCodexQuotaClient.swift in Sources */,
+				ABCE0000000000000000000D /* SalaryAIQuotaConnections.swift in Sources */,
+				ABCE0000000000000000000C /* SalaryAGYQuotaClient.swift in Sources */,
+				ABCE0000000000000000000A /* SalaryAIQuotaSection.swift in Sources */,
 				ABCE00000000000000000002 /* SalaryStore.swift in Sources */,
 				ABCE00000000000000000001 /* SalaryFeedback.swift in Sources */,
 				ABCE00000000000000000000 /* SalaryCore.swift in Sources */,
@@ -1282,7 +1306,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.1.8;
-				PRODUCT_BUNDLE_IDENTIFIER = local.salaryisland.preview;
+				PRODUCT_BUNDLE_IDENTIFIER = local.salaryisland.ai-review.20261027;
 				PRODUCT_MODULE_NAME = SalaryIsland;
 				PRODUCT_NAME = "薪动日常";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1337,7 +1361,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.1.8;
-				PRODUCT_BUNDLE_IDENTIFIER = local.salaryisland.preview;
+				PRODUCT_BUNDLE_IDENTIFIER = local.salaryisland.ai-review.20261027;
 				PRODUCT_MODULE_NAME = SalaryIsland;
 				PRODUCT_NAME = "薪动日常";
 				PROVISIONING_PROFILE_SPECIFIER = "";

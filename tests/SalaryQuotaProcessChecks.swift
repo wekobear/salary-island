@@ -1,0 +1,52 @@
+import Foundation
+import Darwin
+
+@main struct SalaryQuotaProcessChecks {
+    static func main() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("salary-process-checks-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fixture = URL(fileURLWithPath: CommandLine.arguments[1])
+        var cases = 0
+        func setup(_ mode: String, binary: String = "codex") throws -> URL {
+            let dir = root.appendingPathComponent(mode)
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let executable = dir.appendingPathComponent(binary)
+            try FileManager.default.copyItem(at: fixture, to: executable)
+            return executable
+        }
+        func noOrphan(_ url: URL) throws {
+            let pidText = try String(contentsOf: url.deletingLastPathComponent().appendingPathComponent("pid.txt"), encoding: .utf8)
+            let pid = Int32(pidText)!
+            precondition(kill(pid, 0) == -1 && errno == ESRCH, "our child must have exited before await returns")
+        }
+        let policy = QuotaProcessPolicy(timeout: 0.5, terminationGrace: 0.1, stdoutLimit: 32768, stderrLimit: 16384)
+        for mode in ["immediate-exit", "success-ignore-term"] {
+            let url = try setup(mode)
+            let data = try await QuotaCLIProcess.run(executableURL: url, command: .codex, policy: policy)
+            let parsed = try CodexQuotaParser.parse(data, accountID: "fixture", updatedAt: Date())
+            precondition(parsed.windows.first?.usedPercent == 42)
+            try noOrphan(url); cases += 1
+        }
+        for (mode, expected) in [("timeout", AIQuotaError.timedOut), ("timeout-ignore-term", .timedOut), ("large-out", .outputTooLarge), ("large-err", .outputTooLarge), ("malformed", .malformed)] {
+            let url = try setup(mode)
+            do { _ = try await QuotaCLIProcess.run(executableURL: url, command: .codex, policy: policy); fatalError("expected \(mode) failure") }
+            catch let error as AIQuotaError { precondition(error == expected, "\(mode): \(error)") }
+            try noOrphan(url); cases += 1
+        }
+        let canceledURL = try setup("cancel-ignore-term")
+        let request = Task { try await QuotaCLIProcess.run(executableURL: canceledURL, command: .codex, policy: policy) }
+        for _ in 0..<100 {
+            if FileManager.default.fileExists(atPath: canceledURL.deletingLastPathComponent().appendingPathComponent("pid.txt").path) { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        request.cancel()
+        do { _ = try await request.value; fatalError("cancellation ignored") } catch is CancellationError {}
+        try noOrphan(canceledURL); cases += 1
+        let agyURL = try setup("agy", binary: "agy")
+        let agyData = try await QuotaCLIProcess.run(executableURL: agyURL, command: .agy, policy: policy)
+        precondition(String(data: agyData, encoding: .utf8)?.hasPrefix("Quota:") == true)
+        try noOrphan(agyURL); cases += 1
+        print("SalaryQuotaProcessChecks: \(cases) scenarios passed; every launched fake PID confirmed ESRCH before return")
+    }
+}
