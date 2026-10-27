@@ -61,6 +61,31 @@ import Foundation
         check(emptyAGY.isEmpty, "legal statusline no windows")
         let invalidResetC = try codex("0", reset: "-1"), invalidResetG = try glm("0", reset: "-1")
         check(invalidResetC.windows[0].resetsAt == nil && invalidResetG.windows[0].resetsAt == nil, "invalid reset stays unknown")
+        // Finite Double extremes must be rejected before Date/calendar conversion.
+        for value in [Double.greatestFiniteMagnitude, -Double.greatestFiniteMagnitude, 1e308] {
+            let extremeC = try codex("0", reset: String(value))
+            let extremeG = try glm("0", reset: String(value))
+            let extremeA = try AGYQuotaParser.parse(Data("{\"quota\":{\"gemini\":{\"reset_in_seconds\":\(value)}}}".utf8), updatedAt: now)
+            check(extremeC.windows[0].resetsAt == nil, "Codex finite extreme reset")
+            check(extremeG.windows[0].resetsAt == nil, "GLM finite extreme milliseconds")
+            check(extremeA[0].resetsAt == nil, "AGY finite extreme relative reset")
+            check(AIQuotaPresentation.reset(Date(timeIntervalSince1970: value), now: now) == "重置时间未知", "injected extreme Date display")
+        }
+        for value in [Double.infinity, -Double.infinity, Double.nan] {
+            check(AIQuotaTimestamp.seconds(value) == nil && AIQuotaTimestamp.milliseconds(value) == nil, "non-finite timestamp rejected")
+            check(AIQuotaPresentation.reset(Date(timeIntervalSince1970: value), now: now) == "重置时间未知", "non-finite Date display")
+        }
+        let maximum = AIQuotaTimestamp.maximumUnixSeconds
+        check(AIQuotaTimestamp.seconds(maximum + 1) == nil && AIQuotaTimestamp.milliseconds((maximum + 1) * 1000) == nil, "timestamp upper boundary")
+        check(AIQuotaTimestamp.relative(1, to: Date(timeIntervalSince1970: maximum)) == nil, "relative addition range overflow")
+        check(AIQuotaTimestamp.relative(0, to: Date(timeIntervalSince1970: .greatestFiniteMagnitude)) == nil, "invalid relative base")
+        check(AIQuotaTimestamp.relative(0, to: now) == now, "zero relative interval remains valid")
+        for offset in [-14 * 3600, 14 * 3600] {
+            check(AIQuotaPresentation.reset(AIQuotaTimestamp.seconds(maximum), now: now, timeZone: TimeZone(secondsFromGMT: offset)!).hasPrefix("重置 12/"), "bounded maximum formats at timezone extremes")
+        }
+        for text in ["10000-01-01T00:00:00Z", "999999999999999999999-01-01T00:00:00Z", "1969-12-31T23:59:59Z"] {
+            check(AIQuotaTimestamp.iso8601(text) == nil, "ISO range rejected before calendar display")
+        }
         let unknown = GLMCodingPlanWindow(type: "new-limit", unitCode: 3, number: Int.max, usedPercent: nil, resetsAt: nil)
         check(unknown.durationMinutes == nil, "duration multiplication overflow")
         let oversized = Data(repeating: 32, count: 1_048_577)

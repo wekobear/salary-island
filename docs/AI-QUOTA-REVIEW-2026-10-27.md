@@ -25,7 +25,7 @@
 | SalaryQuotaProcessChecks | 9 个场景 | 通过；每个自建 PID 返回前均确认 ESRCH |
 | SalaryAGYUsageChecks | 18 次断言执行，8 个断言位置 | 通过；精确组、剩余换算、非法/重复报表、ANSI、时区与 DST |
 | SalaryQuotaConnectionChecks | 18 个断言 | 通过；默认 OFF、选择不启动、假 CLI 接线、暂停、生命周期、来源/组变化 |
-| SalaryQuotaAcceptanceChecks | 55 次断言执行，动态计数 | 通过；0/100、负数/越界/缺失/非有限值、舍入、秒/毫秒、跨日/到期、缓存边界、空窗口、溢出、输入上限 |
+| SalaryQuotaAcceptanceChecks | 82 次断言执行，动态计数 | 通过；0/100、负数/越界/缺失/非有限值、舍入、秒/毫秒、跨日/到期、缓存边界、空窗口、溢出、输入上限、极大有限时间戳与时区上界 |
 
 9 个进程场景为 immediate-exit、success-ignore-term、timeout、timeout-ignore-term、large-out、large-err、malformed、cancel-ignore-term、agy。没有杀其他用户进程。模拟 auth/rate-limit 是状态层 fixture；不声称真实 Codex JSON-RPC 能自动区分 HTTP 401/429。
 
@@ -44,7 +44,7 @@ Xcode Debug 和 Release 构建成功，部署目标 macOS 14；实际运行环�
 - 未验证真实账户、服务输出/错误、CLI 认证可达性、持续网络刷新；GLM 未公开监控接口没有实现网络接入。
 - 主 app 的外部假 CLI 执行检查未通过；现有沙盒不扩大。Apple DTS 说明 Open Panel 动态扩展不授予执行权限，见 [文件权限](https://developer.apple.com/forums/thread/678819)。这个限制不影响本轮离线验收，但禁止宣称实时接入完成。
 - 未在 macOS 14 真机、多个物理显示器/摄像头 safe area、真实锁屏睡眠或系统减少动态偏好下完整验收。状态层相关行为有 fixture，不能替代真机验证。
-- 候选主 app 使用 `local.salaryisland.ai-review.20261027`；已发布应用为 `local.salaryisland.preview`。原 XPC ID 未改、未用于额度。不得直接把候选身份作为正式安装包。
+- Debug 候选主 app 使用 `local.salaryisland.ai-review.20261027`；Release 恢复正式 `local.salaryisland.preview`。原 XPC ID 未改、未用于额度。正式身份只做静态构建检查，不启动来测试用户薪资配置。
 - Developer ID 签名和 Apple 公证尚未配置验证；当前只有 ad-hoc，不宣称已公证，不关闭 Gatekeeper。
 
 ## 来源与贡献
@@ -53,11 +53,11 @@ Xcode Debug 和 Release 构建成功，部署目标 macOS 14；实际运行环�
 
 GLM 5.3 经既有 Claude Code headless 返回非空纯解析器草稿，modelUsage canonicalModel=glm-5.3、is_error=false；审查修复 reset 可空、数值边界和错误信封优先处理，本轮再补 1 MiB 输入上限。未操作其他模型客户端。现有钱包美术足够，未新增或伪造平台商标。
 
-## 发布核对与计划（尚未执行）
+## 发布准备（尚未推送或发布）
 
 只读核对的远端为公开仓库 `wekobear/salary-island`，main 为 `bad9f9b6634dda06a071b30bedf38b1752f9389d`（0.1.8/build 13）；最新已发布版本 v0.1.6/build 9，安装资产是 `SalaryDaily-v0.1.6-macOS.zip`，另有源码 ZIP 和 SHA256SUMS。现有 Release 工作流仍包含上游项目名称和 appcast 地址，不直接触发它发布薪动日常。
 
-后续发布建议使用新版本 **v0.1.9/build 14**，流程如下：
+已准备 **v0.1.9/build 14** 元数据和可复跑打包脚本 `scripts/package-salary-release.py`；实际构建结果、源码 commit 和资产哈希以脚本输出的 `BUILD-MANIFEST.json` 为准。发布流程如下：
 
 1. 最终审核通过后再次 fetch/核对 main。若远端新增提交，先合并或重放本功能并重新验证差异；只正常 fast-forward 推送，不强推、不丢已有提交。
 2. 正式构建前把 Release 的主 app 标识恢复为既有 `local.salaryisland.preview`，XPC 仍为 `local.salaryisland.preview.BoringNotchXPCHelper`，递增版本/build。Debug 候选保持隔离身份。不得启动正式身份的产物测试用户配置，也不自动安装或替换现有应用。
@@ -66,4 +66,6 @@ GLM 5.3 经既有 Claude Code headless 返回非空纯解析器草稿，modelUsa
 5. 从最终提交 `git archive` 生成源码 ZIP；只打包 app 生成新的 `SalaryDaily-v0.1.9-macOS.zip`，附源码 ZIP 和 SHA256SUMS。当前测试候选标识的包不得上传。tag 必须指向审核提交；确认 tag/Release/同名资产不存在，不使用 clobber，不覆盖旧版本。
 6. 正常推送 main 后创建绑定该提交的新 Release；发布说明强调 AI 模块仅演示与离线验证、未连接真实服务。核对资产下载哈希。发布过程不自动安装应用。
 
-正式版本号/标识变更与最终打包尚未执行；当前候选的构建成功不等于正式安装包已完成。所有已运行的原生检查都使用候选容器，正式身份只做后续静态产物检查。
+正式版本号和 Release 标识已设置；Debug 保持隔离。脚本从干净提交构建并保存相应 commit，生成源码 ZIP 后再次检查 HEAD/工作区，避免产物与源码漂移。所有已运行的原生检查都使用候选容器；正式身份只做静态产物检查。推送 main、tag 和上传 Release 仍待最终审核。
+
+时间戳加固：所有解析路径和显示入口只接受 `(0, 253402214400]` Unix 秒（上界为 9999-12-31 UTC，预留时区余量）。毫秒先验证对应范围再换算；相对时间先验证基准和剩余可加范围再相加；ISO 输入限四位年份。极大 finite、NaN/Infinity、越界 ISO、上下界和 UTC±14 已纳入离线断言；非法值显示未知，不传入日历/日期格式化。

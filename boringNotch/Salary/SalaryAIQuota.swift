@@ -33,6 +33,41 @@ enum AIQuotaError: Error, Equatable {
     case rpcRejected
 }
 
+/// Quota reset dates are positive Unix times no later than 9999-12-31 UTC.
+/// The one-day margin keeps display conversion inside four-digit years in all
+/// supported time zones. Reject before constructing Date or adding intervals;
+/// finite alone is insufficient for Foundation calendar/formatter conversion.
+enum AIQuotaTimestamp {
+    static let maximumUnixSeconds: Double = 253_402_214_400
+
+    static func seconds(_ value: Double) -> Date? {
+        guard value.isFinite, value > 0, value <= maximumUnixSeconds else { return nil }
+        return Date(timeIntervalSince1970: value)
+    }
+    static func milliseconds(_ value: Double) -> Date? {
+        guard value.isFinite, value > 0, value <= maximumUnixSeconds * 1000 else { return nil }
+        return seconds(value / 1000)
+    }
+    static func validated(_ date: Date) -> Date? {
+        seconds(date.timeIntervalSince1970)
+    }
+    static func relative(_ interval: Double, to base: Date) -> Date? {
+        let start = base.timeIntervalSince1970
+        guard validated(base) != nil, interval.isFinite, interval >= 0,
+              interval <= maximumUnixSeconds - start else { return nil }
+        return seconds(start + interval)
+    }
+    static func iso8601(_ text: String) -> Date? {
+        guard text.count <= 40,
+              text.range(of: #"^[0-9]{4}-"#, options: .regularExpression) != nil else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: text) { return validated(date) }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: text).flatMap(validated)
+    }
+}
+
 enum CodexQuotaParser {
     private struct Response: Decodable {
         let result: ResultBody?
@@ -85,7 +120,7 @@ enum CodexQuotaParser {
                 guard let value else { continue }
                 let percent = value.usedPercent.flatMap { $0.isFinite && (0...100).contains($0) ? $0 : nil }
                 let duration = value.windowDurationMins.flatMap { $0 > 0 ? $0 : nil }
-                let reset = value.resetsAt.flatMap { $0.isFinite && $0 > 0 ? Date(timeIntervalSince1970: $0) : nil }
+                let reset = value.resetsAt.flatMap(AIQuotaTimestamp.seconds)
                 windows.append(AIQuotaWindow(bucketID: bucket.limitId ?? key, bucketName: bucket.limitName,
                                              position: position, usedPercent: percent,
                                              durationMinutes: duration, resetsAt: reset))
@@ -143,7 +178,7 @@ enum GLMCodingPlanParser {
               let limits = payload.data?.limits else { throw AIQuotaError.malformed }
         let windows = limits.map { limit in
             let percent = limit.percentage.flatMap { $0.isFinite && (0...100).contains($0) ? $0 : nil }
-            let reset = limit.nextResetTime.flatMap { $0.isFinite && $0 > 0 ? Date(timeIntervalSince1970: $0 / 1000) : nil }
+            let reset = limit.nextResetTime.flatMap(AIQuotaTimestamp.milliseconds)
             return GLMCodingPlanWindow(type: limit.type ?? "未知额度", unitCode: limit.unit,
                                        number: limit.number, usedPercent: percent, resetsAt: reset)
         }
@@ -178,15 +213,12 @@ enum AGYQuotaParser {
         guard data.count <= 1_048_576,
               let payload = try? JSONDecoder().decode(Payload.self, from: data),
               let buckets = payload.quota else { throw AIQuotaError.malformed }
-        let iso = ISO8601DateFormatter()
-        let fractionalISO = ISO8601DateFormatter()
-        fractionalISO.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return buckets.keys.sorted().compactMap { key in
             guard let value = buckets[key] else { return nil }
             let fraction = value.remaining_fraction.flatMap { $0.isFinite && (0...1).contains($0) ? $0 : nil }
             let amount = value.remaining_amount.flatMap { $0.isFinite && $0 >= 0 ? $0 : nil }
-            let absolute = value.reset_time.flatMap { fractionalISO.date(from: $0) ?? iso.date(from: $0) }
-            let relative = value.reset_in_seconds.flatMap { $0.isFinite && $0 >= 0 ? updatedAt.addingTimeInterval($0) : nil }
+            let absolute = value.reset_time.flatMap(AIQuotaTimestamp.iso8601)
+            let relative = value.reset_in_seconds.flatMap { AIQuotaTimestamp.relative($0, to: updatedAt) }
             return AGYQuotaWindow(bucketID: key, remainingFraction: fraction, remainingAmount: amount,
                                   resetsAt: absolute ?? relative, disabled: value.disabled ?? false)
         }
@@ -220,10 +252,11 @@ enum AIQuotaPresentation {
         return "已用 \(Int(value.rounded(.toNearestOrAwayFromZero)))%"
     }
     static func reset(_ date: Date?, now: Date, timeZone: TimeZone = .current) -> String {
-        guard let date else { return "重置时间未知" }
+        guard let date = date.flatMap(AIQuotaTimestamp.validated) else { return "重置时间未知" }
         guard date > now else { return "已到重置时间 · 待刷新" }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
         formatter.timeZone = timeZone
         formatter.dateFormat = "M/d HH:mm"
         return "重置 " + formatter.string(from: date)

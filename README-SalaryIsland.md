@@ -1,6 +1,6 @@
-# 薪动日常 · v0.1.8 开发版
+# 薪动日常 · v0.1.9
 
-> 2026-10-27 AI 额度独立候选：新增 Codex / Gemini / GLM 5.3 面板；本轮仅验收模拟数据、离线解析与刷新状态，三家真实账户未连接。Release 可主动开启明确标识的演示，真实连接操作不开放。本分支改用 `local.salaryisland.ai-review.20261027`，不沿用旧安装数据。构建与限制见 [候选验收记录](docs/AI-QUOTA-REVIEW-2026-10-27.md)，新测试入口 `bash scripts/check-ai-quota.sh`。
+> v0.1.9 / build 14 新增 Codex / Gemini / GLM 5.3 面板，本轮仅验收模拟数据、离线解析与刷新状态，三家真实账户未连接。Release 可主动开启明确标识的演示，真实连接操作不开放。Debug 使用隔离身份 `local.salaryisland.ai-review.20261027`；Release 沿用正式身份 `local.salaryisland.preview`。构建与限制见 [验收记录](docs/AI-QUOTA-REVIEW-2026-10-27.md) 和 [版本说明](docs/RELEASE-v0.1.9.md)，额度测试入口 `bash scripts/check-ai-quota.sh`。
 
 把上班的每一秒，换算成生活里的一点甜。
 
@@ -8,7 +8,7 @@ macOS 灵动岛薪酬工具，提供下班倒计时、实时收入估算和每�
 
 ## 体验
 
-首次打开遇到系统弹窗时，参照[安装与首次打开图解](docs/INSTALL.md)，按截图完成「隐私与安全性 → 仍要打开」。
+本版安装包采用 ad-hoc 签名，未获 Developer ID 签名或 Apple 公证。可用同一 Release 的 SHA256SUMS 核对下载完整性；macOS 是否允许打开由系统安全策略决定。
 
 - 打开 `薪动日常.app`，显示名称为“薪动日常”。首次显示设置窗口，不预填真实月薪。升级沿用原 bundle ID 和数据目录。
 - 点击“播放奶茶演示”，用明确标记的虚构数据看到奶茶门槛反馈；演示不会写入正式成就。
@@ -38,7 +38,7 @@ bash scripts/build-salary-local.sh
 
 构建脚本生成 `work/build/Build/Products/Debug/薪动日常.app`，做本地 ad-hoc 签名并保留 App Sandbox。它不是 Developer ID 公证发行流程；不会发布、上传或替用户安装到 Applications。
 
-本轮网络导致完整 Git 镜像下载中断，开发机使用固定 SHA 的浅克隆作本机 SwiftPM mirror；机器路径不提交、不打入源码交付包。其他机器按原 URL 与锁文件构建即可。
+正式离线版本打包命令：`python3 scripts/package-salary-release.py`。要求已提交且干净的工作区；构建、去除本机调试路径、保留沙盒 entitlements 的 ad-hoc 签名和静态校验后，输出 app ZIP、源码 ZIP、SHA256SUMS 与含源码 commit 的构建清单。此脚本不启动应用、不安装、不上传、不推送；详见版本说明。
 
 ## 心动钱包（v0.1.8）
 

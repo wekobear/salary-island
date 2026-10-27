@@ -57,11 +57,7 @@ enum AGYUsageTextParser {
 enum QuotaResetDateParser {
     static func parse(_ text: String, timeZone: TimeZone) throws -> Date? {
         if ["unknown", "—"].contains(text) { return nil }
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = iso.date(from: text) { return date }
-        iso.formatOptions = [.withInternetDateTime]
-        if let date = iso.date(from: text) { return date }
+        if let date = AIQuotaTimestamp.iso8601(text) { return date }
         let parts = text.split(separator: " ")
         guard parts.count == 3 else { throw AIQuotaError.malformed }
         let wall = String(parts[0]) + " " + String(parts[1]), zone = String(parts[2])
@@ -80,7 +76,8 @@ enum QuotaResetDateParser {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.calendar = Calendar(identifier: .gregorian)
         formatter.timeZone = resolved; formatter.dateFormat = "yyyy-MM-dd HH:mm"; formatter.isLenient = false
-        guard let date = formatter.date(from: wall), formatter.string(from: date) == wall else { throw AIQuotaError.malformed }
+        guard let parsed = formatter.date(from: wall), let date = AIQuotaTimestamp.validated(parsed),
+              formatter.string(from: date) == wall else { throw AIQuotaError.malformed }
         if requiresAbbreviation {
             guard resolved.abbreviation(for: date) == zone else { throw AIQuotaError.malformed }
             var calendar = Calendar(identifier: .gregorian); calendar.timeZone = resolved
